@@ -7,7 +7,8 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
 #include "json.hpp"
-
+#include "spline.h"
+#include <math.h>
 // for convenience
 using nlohmann::json;
 using std::string;
@@ -49,9 +50,11 @@ int main() {
     map_waypoints_dx.push_back(d_x);
     map_waypoints_dy.push_back(d_y);
   }
+  double ref_v=49;
+  int lane=1;
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy]
+               &map_waypoints_dx,&map_waypoints_dy, &ref_v, &lane]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -87,9 +90,9 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
+          int pre_size=previous_path_x.size();
 
           json msgJson;
-
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
@@ -97,6 +100,83 @@ int main() {
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
+	        vector<double> ptsx;
+          vector<double> ptsy;
+          double ref_x, ref_y, ref_x_pre, ref_y_pre;
+          ref_x=car_x;
+          ref_y=car_y;
+          double ref_yaw=deg2rad(car_yaw);
+  
+          if(pre_size<2){
+            ref_x_pre=car_x-cos(car_yaw);
+            ref_y_pre=car_y-sin(car_yaw);
+            ptsx.push_back(ref_x_pre);
+            ptsx.push_back(car_x);
+            ptsy.push_back(ref_y_pre);
+            ptsy.push_back(car_y);
+          }
+          else{
+            ref_x=previous_path_x[pre_size-1];
+            ref_x_pre=previous_path_x[pre_size-2];
+            ref_y=previous_path_y[pre_size-1];
+            ref_y_pre=previous_path_y[pre_size-2];
+            ref_yaw=atan2(ref_y-ref_y_pre, ref_x-ref_x_pre);
+            ptsx.push_back(ref_x_pre);
+            ptsx.push_back(ref_x);
+            ptsy.push_back(ref_y_pre);
+            ptsy.push_back(ref_y);
+          }
+          //creating a path
+          //shifting to the vehicle coordinates
+          //creating waypoints of a spline with 30m space evenly
+          vector<double> WP1;
+          vector<double> WP2;
+          vector<double> WP3;
+          WP1=getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          WP2=getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          WP3=getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+
+          tk::spline t;
+          ptsx.push_back(WP1[0]);
+          ptsx.push_back(WP2[0]);
+          ptsx.push_back(WP3[0]);
+          ptsy.push_back(WP1[1]);
+          ptsy.push_back(WP2[1]);
+          ptsy.push_back(WP3[1]);
+          for(auto i=0;i<ptsx.size();++i){
+            double shifted_x=ptsx[i]-ref_x;
+            double shifted_y=ptsy[i]-ref_y;
+            ptsx[i]=cos(ref_yaw)*shifted_x+sin(ref_yaw)*shifted_y;
+            ptsy[i]=sin(-ref_yaw)*shifted_x+cos(ref_yaw)*shifted_y;
+          }
+          t.set_points(ptsx,ptsy);
+          for(auto i=0;i<previous_path_x.size();++i){
+            next_x_vals.push_back(previous_path_x[i]);
+            next_y_vals.push_back(previous_path_y[i]);
+          }
+
+          double target_x=30;
+          double target_y;
+          target_y=t(target_x);
+          double tar_dist=distance(0, 0, target_x, target_y);
+          double x_add_on(0.0);
+          double N;
+          
+
+          for(auto i=1;i<=50-previous_path_x.size();++i){
+            N=tar_dist/(0.02*ref_v/2.24);
+            double x_point=x_add_on+target_x/N;
+            double y_point=t(x_point);
+            x_add_on=x_point;
+            double new_x=x_point;
+            double new_y=y_point;
+            new_x=cos(ref_yaw)*new_x-sin(ref_yaw)*new_y;
+            new_y=sin(ref_yaw)*new_x+cos(ref_yaw)*new_y;
+            new_x+=ref_x;
+            new_y+=ref_y;
+            next_x_vals.push_back(new_x);
+            next_y_vals.push_back(new_y);
+          }
 
 
           msgJson["next_x"] = next_x_vals;
