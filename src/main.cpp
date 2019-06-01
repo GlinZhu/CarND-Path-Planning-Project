@@ -116,10 +116,10 @@ int main() {
             ptsy.push_back(car_y);
           }
           else{
-            ref_x=previous_path_x[pre_size-1];
-            ref_x_pre=previous_path_x[pre_size-2];
-            ref_y=previous_path_y[pre_size-1];
-            ref_y_pre=previous_path_y[pre_size-2];
+            ref_x=previous_path_x[-1];
+            ref_x_pre=previous_path_x[-2];
+            ref_y=previous_path_y[-1];
+            ref_y_pre=previous_path_y[-2];
             ref_yaw=atan2(ref_y-ref_y_pre, ref_x-ref_x_pre);
             ptsx.push_back(ref_x_pre);
             ptsx.push_back(ref_x);
