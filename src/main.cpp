@@ -9,6 +9,8 @@
 #include "json.hpp"
 #include "spline.h"
 #include <math.h>
+
+#include "Planner.h" //include the planner to .cpp file
 // for convenience
 using nlohmann::json;
 using std::string;
@@ -86,30 +88,38 @@ int main() {
           // Previous path's end s and d values 
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
+          double AccT=j[1]["AccT"];
+          double AccN=j[1]["AccN"];
 
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
-          auto sensor_fusion = j[1]["sensor_fusion"];
+          vector<vector<double>> sensor_fusion = j[1]["sensor_fusion"];
+
           int pre_size=previous_path_x.size();
 
           json msgJson;
           vector<double> next_x_vals;
           vector<double> next_y_vals;
-
+          //std::cout<<"the data type of sensor fusion"<<typeid(sensor_fusion).name()<<"\n";
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
+          
 	        vector<double> ptsx;
           vector<double> ptsy;
           double ref_x, ref_y, ref_x_pre, ref_y_pre;
           ref_x=car_x;
           ref_y=car_y;
           double ref_yaw=deg2rad(car_yaw);
-  
+          Vehicle ego_vehicle;
+          //double car_accel=sqrt(AccT*AccT+AccN*AccN);
+          //ego_vehicle=Vehicle(lane, car_s, car_speed/3.6, car_accel, "CS");
+          //vector<Vehicle> final_trajectory=ego_vehicle.choose_next_state(sensor_fusion);
+          
           if(pre_size<2){
-            ref_x_pre=car_x-cos(car_yaw);
-            ref_y_pre=car_y-sin(car_yaw);
+            ref_x_pre=car_x-cos(ref_yaw);
+            ref_y_pre=car_y-sin(ref_yaw);
             ptsx.push_back(ref_x_pre);
             ptsx.push_back(car_x);
             ptsy.push_back(ref_y_pre);
