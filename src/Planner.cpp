@@ -3,13 +3,16 @@
 #include<iterator>
 #include<math.h>
 #include<algorithm>
-
-using std::map;
+#include<string>
+#include<vector>
+#include<map>
+//using std::map;
 using std::vector;
 using std::string;
 using  std::cout;
 
 Vehicle::Vehicle(){cout<<"create a calss of vehicle\n";}
+
 Vehicle::Vehicle(int lane, double s, double v, double a, string state){
     this->lane=lane;
     this->s=s;
@@ -32,8 +35,8 @@ vector<Vehicle> Vehicle::choose_next_state(vector<vector<double>> &predictions){
             total_cost.push_back(inefficiency_cost(predictions, *this, traj));
         }
     }
-    vector<float>::iterator best_cost=min_element(begin(total_cost), end(total_cost));
-    int best_idx=distance(begin(total_cost), best_cost);
+    vector<float>::iterator best_cost=std::min_element(begin(total_cost), end(total_cost));
+    int best_idx=std::distance(begin(total_cost), best_cost);
     return final_traj[best_idx];
 }
 
@@ -62,19 +65,19 @@ return states;
 
 vector<Vehicle> Vehicle::generate_trajectory(vector<vector<double>> &predictions, string state){
     vector<Vehicle> trajectory;
-    if(state.compare("LCL")||state.compare("LCR")){
+    if(state.compare("LCL")==0||state.compare("LCR")==0){
         trajectory=lane_change_trajectory(predictions, state);
     }
-    else if(state.compare("PLCL")||state.compare("PLCR")){
+    else if(state.compare("PLCL")==0||state.compare("PLCR")==0){
         trajectory=pre_lane_change_trajectory(predictions, state);
     }
-    else if(state.compare("KL")){
+    else if(state.compare("KL")==0){
         trajectory=lane_keep_trajectory(predictions);
     }
-    else if(state.compare("CS")){
+    else if(state.compare("CS")==0){
         trajectory=const_speed();
     }
-return trajectory;
+    return trajectory;
 }
 vector<double> Vehicle::get_kinematic(vector<vector<double>> &predictions, int lane){
     int dt=1;
@@ -91,7 +94,7 @@ vector<double> Vehicle::get_kinematic(vector<vector<double>> &predictions, int l
         }
         else{
             double max_ahead_vel=vel_ahead.s-this->s-dist_buffer+vel_ahead.v-0.5*this->a;
-            new_v=std::min(max_ahead_vel, max_accel_vel, this->target_v);
+            new_v=std::min(std::min(max_ahead_vel, max_accel_vel), this->target_v);
         }
     }
     else{

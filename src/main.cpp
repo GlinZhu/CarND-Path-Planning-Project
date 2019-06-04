@@ -10,7 +10,8 @@
 #include "spline.h"
 #include <math.h>
 
-#include "Planner.h" //include the planner to .cpp file
+#include "Planner.h" //include the planner functions
+//#include "Planner.cpp"
 // for convenience
 using nlohmann::json;
 using std::string;

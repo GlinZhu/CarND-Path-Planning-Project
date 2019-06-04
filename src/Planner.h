@@ -48,8 +48,7 @@ class Vehicle{
 };
 
 // create the cost functions in this folder
-float inefficiency_cost(vector<vector<double>> &predictions, Vehicle &vehicle, 
-                        vector<Vehicle> &trajectory, map<string, int> &lane_data);
+float inefficiency_cost(vector<vector<double>> &predictions, Vehicle &vehicle, vector<Vehicle> &trajectory);
 float get_lane_speed(vector<vector<double>> &predictions, int lane);
 map<string, int> get_lane_data(Vehicle &vehicle, vector<vector<double>> &predictions, vector<Vehicle> &trajectory);
 
