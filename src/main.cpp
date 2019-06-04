@@ -11,13 +11,12 @@
 #include <math.h>
 
 #include "Planner.h" //include the planner functions
-//#include "Planner.cpp" // it's bad to include source file directly to avoid "undefined reference to error"
+//#include "Planner.cpp" // shouldn't include source file directly to avoid "undefined reference to error"
 
 // for convenience
 using nlohmann::json;
 using std::string;
 using std::vector;
-//Vehicle ego_vehicle;
 
 int main() {
   uWS::Hub h;
@@ -116,9 +115,9 @@ int main() {
           ref_y=car_y;
           double ref_yaw=deg2rad(car_yaw);
           Vehicle ego_vehicle;
-          //double car_accel=sqrt(AccT*AccT+AccN*AccN);
-          //ego_vehicle=Vehicle(lane, car_s, car_speed/3.6, car_accel, "CS");
-          //vector<Vehicle> final_trajectory=ego_vehicle.choose_next_state(sensor_fusion);
+          double car_accel=sqrt(AccT*AccT+AccN*AccN);
+          ego_vehicle=Vehicle(lane, car_s, car_speed/3.6, car_accel, "CS");
+          vector<Vehicle> final_trajectory=ego_vehicle.choose_next_state(sensor_fusion);
           
           if(pre_size<2){
             ref_x_pre=car_x-cos(ref_yaw);
