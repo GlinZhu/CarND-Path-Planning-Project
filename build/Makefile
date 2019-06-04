@@ -123,6 +123,33 @@ path_planning/fast:
 	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/build
 .PHONY : path_planning/fast
 
+src/Planner.o: src/Planner.cpp.o
+
+.PHONY : src/Planner.o
+
+# target to build an object file
+src/Planner.cpp.o:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/src/Planner.cpp.o
+.PHONY : src/Planner.cpp.o
+
+src/Planner.i: src/Planner.cpp.i
+
+.PHONY : src/Planner.i
+
+# target to preprocess a source file
+src/Planner.cpp.i:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/src/Planner.cpp.i
+.PHONY : src/Planner.cpp.i
+
+src/Planner.s: src/Planner.cpp.s
+
+.PHONY : src/Planner.s
+
+# target to generate assembly for a file
+src/Planner.cpp.s:
+	$(MAKE) -f CMakeFiles/path_planning.dir/build.make CMakeFiles/path_planning.dir/src/Planner.cpp.s
+.PHONY : src/Planner.cpp.s
+
 src/main.o: src/main.cpp.o
 
 .PHONY : src/main.o
@@ -159,6 +186,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... path_planning"
+	@echo "... src/Planner.o"
+	@echo "... src/Planner.i"
+	@echo "... src/Planner.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

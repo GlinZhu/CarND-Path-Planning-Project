@@ -11,11 +11,13 @@
 #include <math.h>
 
 #include "Planner.h" //include the planner functions
-//#include "Planner.cpp"
+//#include "Planner.cpp" // it's bad to include source file directly to avoid "undefined reference to error"
+
 // for convenience
 using nlohmann::json;
 using std::string;
 using std::vector;
+//Vehicle ego_vehicle;
 
 int main() {
   uWS::Hub h;

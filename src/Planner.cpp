@@ -1,11 +1,13 @@
 #include<iostream>
-#include "Planner.h" //include all functions
 #include<iterator>
 #include<math.h>
 #include<algorithm>
 #include<string>
 #include<vector>
 #include<map>
+//include all head files 
+#include "Planner.h" //include all functions
+
 //using std::map;
 using std::vector;
 using std::string;
