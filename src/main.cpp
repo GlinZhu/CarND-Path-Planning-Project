@@ -116,7 +116,9 @@ int main() {
           double ref_yaw=deg2rad(car_yaw);
           Vehicle ego_vehicle;
           double car_accel=sqrt(AccT*AccT+AccN*AccN);
+          //define the initial vehicle state;
           ego_vehicle=Vehicle(lane, car_s, car_speed/3.6, car_accel, "CS");
+          //get the final trajectory according the previous vehicle state and sensor fusion;
           vector<Vehicle> final_trajectory=ego_vehicle.choose_next_state(sensor_fusion);
           
           if(pre_size<2){
