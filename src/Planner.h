@@ -39,10 +39,10 @@ class Vehicle{
     };
 
     //define all class member data
-    int lane, goal_lane;
-    double s, d, v, a, goal_s, target_v, max_accel;
+    int lane;
+    double s, d, v, a, target_v, max_accel;
     string state;
-    float dist_buffer=10.0; // the safety distance for lane keeping and const speed trajectory
+    float dist_buffer; // the safety distance for lane keeping and const speed trajectory
 
 
 };

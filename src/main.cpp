@@ -11,7 +11,7 @@
 #include <math.h>
 
 #include "Planner.h" //include the planner functions
-//#include "Planner.cpp" // shouldn't include source file directly to avoid "undefined reference to error"
+#include "Traj_generation.h"
 
 // for convenience
 using nlohmann::json;
@@ -54,7 +54,7 @@ int main() {
     map_waypoints_dx.push_back(d_x);
     map_waypoints_dy.push_back(d_y);
   }
-  double ref_v=49;
+  double ref_v=0.0;
   int lane=1;
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
@@ -104,23 +104,47 @@ int main() {
           vector<double> next_y_vals;
           //std::cout<<"the data type of sensor fusion"<<typeid(sensor_fusion).name()<<"\n";
           /**
-           * TODO: define a path made up of (x,y) points that the car will visit
+           * define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
+          //Get lane value according to given current car_d;
           
+		      if(car_d>0&&car_d<4){
+			      lane=0; //left
+			    }
+		      else if(car_d>4&&car_d<8){
+			      lane=1; //middle
+			    }
+          else if(car_d>8&&car_d<12){
+			      lane=2; //right
+            }
 	        vector<double> ptsx;
           vector<double> ptsy;
           double ref_x, ref_y, ref_x_pre, ref_y_pre;
           ref_x=car_x;
           ref_y=car_y;
           double ref_yaw=deg2rad(car_yaw);
+          std::cout << std::setw(25) << "==================================================================" << std::endl;
           Vehicle ego_vehicle;
+          //class initialization 
+          ego_vehicle.target_v=49.5;
+          ego_vehicle.max_accel=10.0;
+          ego_vehicle.dist_buffer=10.0;
           double car_accel=sqrt(AccT*AccT+AccN*AccN);
           //define the initial vehicle state;
-          ego_vehicle=Vehicle(lane, car_s, car_speed/3.6, car_accel, "CS");
-          //get the final trajectory according the previous vehicle state and sensor fusion;
-          vector<Vehicle> final_trajectory=ego_vehicle.choose_next_state(sensor_fusion);
+          ego_vehicle.lane=lane;
+          ego_vehicle.s=car_s;
+          ego_vehicle.v=car_speed/2.24;
+          ego_vehicle.a=car_accel;
+          ego_vehicle.state="CS";
+          ego_vehicle=Vehicle(lane, car_s, car_speed/2.24, car_accel, "CS");
           
+          //get the final trajectory according to the previous vehicle state and sensor fusion;
+          vector<Vehicle> final_trajectory=ego_vehicle.choose_next_state(sensor_fusion);
+
+          Vehicle veh_init=final_trajectory[0]; //the starting state of vehicle
+          Vehicle veh_final=final_trajectory[1]; // the goal state of vehicle
+
           if(pre_size<2){
             ref_x_pre=car_x-cos(ref_yaw);
             ref_y_pre=car_y-sin(ref_yaw);
@@ -146,17 +170,54 @@ int main() {
           vector<double> WP1;
           vector<double> WP2;
           vector<double> WP3;
-          WP1=getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          WP2=getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          WP3=getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          // calculate coefficents for s(t) and d(t);
+          vector<double> start_s(3), end_s(3);
+          vector<double> start_d(3), end_d(3);
 
+          start_s={car_s, veh_init.v, veh_init.a};
+          end_s={veh_final.s, veh_final.v, veh_final.a};
+          start_d={car_d, 0.0, 0.0}; //assume both start and end states have d_dot and d_ddot being zero
+          double d_final=2.0+4.0*veh_final.lane;
+          end_d={d_final, 0.0, 0.0};
+
+          // Get coefficients of PTG
+          double T=5.0;
+          vector<double> coeff_s=JMT(start_s, end_s, T);
+          vector<double> coeff_d=JMT(start_d, end_d, T);
+          //generate trajectory using both s(t) and d(t)
+          vector<double> T_;
+          vector<double> traj_s;
+          for(double i=0; i<T; i+=0.2){
+            double pt=coeff_s[0]+coeff_s[1]*i+coeff_s[2]*i*i+coeff_s[3]*pow(i,3)+coeff_s[4]*pow(i,4)+coeff_s[5]*pow(i,5);
+            traj_s.push_back(pt);
+            T_.push_back(i);
+          }
+
+          //generate d trajectory;
+          vector<double> traj_d;
+          for(double i=0; i<T; i+=0.2){
+            double pt=coeff_d[0]+coeff_d[1]*i+coeff_d[2]*i*i+coeff_d[3]*pow(i,3)+coeff_d[4]*pow(i,4)+coeff_d[5]*pow(i,5);
+            traj_d.push_back(pt);
+          }
+          vector<double> waypoints;
+          for(unsigned i=0; i<traj_s.size(); ++i){
+            vector<double> WP=getXY(traj_s[i], traj_d[i], map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            ptsx.push_back(WP[0]);
+            ptsy.push_back(WP[1]);
+          }
+          
+
+
+          //WP1=getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          //WP2=getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          //WP3=getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
           tk::spline t;
-          ptsx.push_back(WP1[0]);
-          ptsx.push_back(WP2[0]);
-          ptsx.push_back(WP3[0]);
-          ptsy.push_back(WP1[1]);
-          ptsy.push_back(WP2[1]);
-          ptsy.push_back(WP3[1]);
+          //ptsx.push_back(WP1[0]);
+          ///ptsx.push_back(WP2[0]);
+          //ptsx.push_back(WP3[0]);
+          //ptsy.push_back(WP1[1]);
+          //ptsy.push_back(WP2[1]);
+          //ptsy.push_back(WP3[1]);
           for(auto i=0;i<ptsx.size();++i){
             double shifted_x=ptsx[i]-ref_x;
             double shifted_y=ptsy[i]-ref_y;
@@ -164,6 +225,9 @@ int main() {
             ptsy[i]=sin(-ref_yaw)*shifted_x+cos(ref_yaw)*shifted_y;
           }
           t.set_points(ptsx,ptsy);
+
+
+
           for(auto i=0;i<previous_path_x.size();++i){
             next_x_vals.push_back(previous_path_x[i]);
             next_y_vals.push_back(previous_path_y[i]);
@@ -175,8 +239,8 @@ int main() {
           double tar_dist=distance(0, 0, target_x, target_y);
           double x_add_on(0.0);
           double N;
-          
-
+     
+          ref_v=veh_final.v;
           for(auto i=1;i<=50-previous_path_x.size();++i){
             N=tar_dist/(0.02*ref_v/2.24);
             double x_point=x_add_on+target_x/N;
@@ -228,3 +292,4 @@ int main() {
   
   h.run();
 }
+
