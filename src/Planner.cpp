@@ -7,7 +7,7 @@
 #include<map>
 //include all head files 
 #include "Planner.h" //include all functions
-
+#include "Costs.h"
 //using std::map;
 using std::vector;
 using std::string;
@@ -25,8 +25,8 @@ Vehicle::Vehicle(int lane, double s, double v, double a, string state){
 }
 
 Vehicle::~Vehicle(){}
-vector<Vehicle> Vehicle::choose_next_state(vector<vector<double>> &predictions){
-    vector<string> states=next_states();
+vector<Vehicle> Vehicle::get_target_s_d(vector<vector<double>> &predictions){
+    vector<string> states=next_available_states();
     vector<float> total_cost;
     vector<vector<Vehicle>> final_traj;
     for(vector<string>::iterator it=states.begin();it!=states.end();++it){
@@ -42,25 +42,15 @@ vector<Vehicle> Vehicle::choose_next_state(vector<vector<double>> &predictions){
     return final_traj[best_idx];
 }
 
-vector<string> Vehicle::next_states(){
+vector<string> Vehicle::next_available_states(){
     vector<string> states;
     states.push_back("KL");
     string state=this->state;
-    if(state.compare("KL")==0){
-        states.push_back("PLCL");
-        states.push_back("PLCR");
+    if(this->lane!=0&&this->d>4){
+        states.push_back("LCL");
     }
-    else if(state.compare("PLCL")==0){
-        if(this->lane!=0){
-            states.push_back("PLCL");
-            states.push_back("LCL");
-        }
-    }
-    else if(state.compare("PLCR")==0){
-        if(this->lane!=2){
-            states.push_back("PLCR");
-            states.push_back("LCR");
-        }
+    if(this->lane!=2&&this->d<8){
+        states.push_back("LCR");
     }
 return states;
 }
@@ -81,9 +71,9 @@ vector<Vehicle> Vehicle::generate_trajectory(vector<vector<double>> &predictions
     }
     return trajectory;
 }
-vector<double> Vehicle::get_kinematic(vector<vector<double>> &predictions, int lane){
-    int dt=1;
-    double max_accel_vel=this->v+this->max_accel*dt;
+vector<double> Vehicle::get_kinematic(vector<vector<double>> &predictions, int lane, double duration){
+
+    double max_accel_vel=this->v+this->max_accel*duration;
     double new_position;
     double new_v;
     double new_accel;
@@ -143,37 +133,6 @@ vector<Vehicle> Vehicle::lane_change_trajectory(vector<vector<double>> &predicti
 
 }
 
-
-vector<Vehicle> Vehicle::pre_lane_change_trajectory(vector<vector<double>> &predictions, string state){
-    vector<Vehicle> trajectory;
-    int new_lane=this->lane+lane_direction[state];
-    Vehicle vehicle_behind;
-    double new_pos, new_v, new_a;
-    vector<double> next_lane_kinematic=get_kinematic(predictions, new_lane);
-    vector<double> curr_lane_kinematic=get_kinematic(predictions, this->lane);
-    trajectory.push_back(Vehicle(this->lane, this->s, this->v, this->a, this->state));
-    if(get_vehicle_behind(predictions, this->lane, vehicle_behind)){
-        new_pos=curr_lane_kinematic[0];
-        new_v=curr_lane_kinematic[1];
-        new_a=curr_lane_kinematic[2];
-    }
-    else{
-        vector<double> best_kinematic;
-        if(next_lane_kinematic[1]<curr_lane_kinematic[1]){
-            best_kinematic=next_lane_kinematic;
-        }       
-        else{
-            best_kinematic=curr_lane_kinematic;
-        } 
-        new_pos=best_kinematic[0];
-        new_v=best_kinematic[1];
-        new_a=best_kinematic[2];
-    }
-    
-    trajectory.push_back(Vehicle(this->lane, new_pos, new_v, new_a, state));
-    return trajectory;
-
-}
 int Vehicle::get_lane_val(vector<double> &sensor_fusion){
     double d=sensor_fusion[6];
     if(d>0&&d<4){
@@ -232,60 +191,5 @@ bool Vehicle::get_vehicle_ahead(vector<vector<double>> predictions, int lane, Ve
 
 }
 
-float inefficiency_cost(vector<vector<double>> &predictions, Vehicle &vehicle, vector<Vehicle> &trajectory){
-    map<string, int> lane_data=get_lane_data(vehicle, predictions, trajectory);
-    float proposed_speed_intended = get_lane_speed(predictions, lane_data["intended_lane"]);
-    if (proposed_speed_intended < 0) {
-        proposed_speed_intended = vehicle.target_v;
-  }
-
-    float proposed_speed_final = get_lane_speed(predictions, lane_data["final_lane"]);
-    if (proposed_speed_final < 0) {
-        proposed_speed_final = vehicle.target_v;
-  }
-    
-    float cost = (2.0*vehicle.target_v - proposed_speed_intended 
-             - proposed_speed_final)/vehicle.target_v;
-
-    return cost;
-}
-
-
-map<string, int> get_lane_data(Vehicle &vehicle, vector<vector<double>> &predictions, vector<Vehicle> &trajectory){
-    map<string, int> trajectory_data;
-    Vehicle trajectory_last=trajectory[1];
-    int intended_lane;
-    if(trajectory_last.state.compare("PLCL")==0){
-        intended_lane=trajectory_last.lane+1;
-    }
-    else if(trajectory_last.state.compare("PLCR")==0){
-        intended_lane=trajectory_last.lane-1;
-    }
-    else{
-        intended_lane=trajectory_last.lane;
-    }
-    int final_lane=trajectory_last.lane;
-    trajectory_data["intended_lane"]=intended_lane;
-    trajectory_data["final_lane"]=final_lane;
-
-    return trajectory_data;
-
-}
-
-float get_lane_speed(vector<vector<double>> &predictions, int lane){
-    Vehicle vehicle;
-    for (unsigned i=0;i<predictions.size();++i) {
-    int key = predictions[i][0];
-    int rlane=vehicle.get_lane_val(predictions[i]);
-    double vx=predictions[i][3];
-    double vy=predictions[i][4];
-    double r_v=sqrt(vx*vx+vy*vy);
-    if (rlane == lane && key != -1) {
-      return r_v;
-    }
-  }
-  // Found no vehicle in the lane
-  return -1.0;
-}
 
 

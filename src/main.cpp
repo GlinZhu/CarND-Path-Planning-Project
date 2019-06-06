@@ -18,6 +18,13 @@ using nlohmann::json;
 using std::string;
 using std::vector;
 
+//initialize variables
+double max_s=6945.554;
+double lane_width=4.0;
+double car_s_init=1.249392e+02;
+double car_d_init=6.164833e+00;
+double car_speed_max=24.5; // m/s
+
 int main() {
   uWS::Hub h;
 
@@ -31,7 +38,7 @@ int main() {
   // Waypoint map to read from
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
-  double max_s = 6945.554;
+
 
   std::ifstream in_map_(map_file_.c_str(), std::ifstream::in);
 
@@ -56,9 +63,11 @@ int main() {
   }
   double ref_v=0.0;
   int lane=1;
+  //create a class
+  Vehicle ego_vehicle=Vehicle();
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy, &ref_v, &lane]
+               &map_waypoints_dx,&map_waypoints_dy, &ego_vehicle]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -90,8 +99,9 @@ int main() {
           // Previous path's end s and d values 
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
-          double AccT=j[1]["AccT"];
-          double AccN=j[1]["AccN"];
+
+          //double AccT=j[1]["AccT"];
+          //double AccN=j[1]["AccN"];
 
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
@@ -108,7 +118,8 @@ int main() {
            *   sequentially every .02 seconds
            */
           //Get lane value according to given current car_d;
-          
+          int lane;
+
 		      if(car_d>0&&car_d<4){
 			      lane=0; //left
 			    }
@@ -121,16 +132,50 @@ int main() {
 	        vector<double> ptsx;
           vector<double> ptsy;
           double ref_x, ref_y, ref_x_pre, ref_y_pre;
+          //double prev_s, prev_d;
+          vector<double> s_history, d_history;
+          int s_len=s_history.size();
+          double car_accel;
+          s_history.push_back(car_s);
+          d_history.push_back(car_d);
+          if(s_history.size()<=2){
+            car_accel=2;
+          }
+          else{
+            double cur_v=(s_history[s_len-1]-s_history[s_len-2])/0.02;
+            double pre_v=(s_history[s_len-2]-s_history[s_len-3])/0.02;
+            car_accel=(cur_v-pre_v)/0.02;
+          }
           ref_x=car_x;
           ref_y=car_y;
           double ref_yaw=deg2rad(car_yaw);
+          if(pre_size<2){
+            ref_x_pre=car_x-cos(ref_yaw);
+            ref_y_pre=car_y-sin(ref_yaw);
+            ptsx.push_back(ref_x_pre);
+            ptsx.push_back(car_x);
+            ptsy.push_back(ref_y_pre);
+            ptsy.push_back(car_y);
+
+          }
+          else{
+            ref_x=previous_path_x[pre_size-1];
+            ref_x_pre=previous_path_x[pre_size-2];
+            ref_y=previous_path_y[pre_size-1];
+            ref_y_pre=previous_path_y[pre_size-2];
+            ref_yaw=atan2(ref_y-ref_y_pre, ref_x-ref_x_pre);
+            ptsx.push_back(ref_x_pre);
+            ptsx.push_back(ref_x);
+            ptsy.push_back(ref_y_pre);
+            ptsy.push_back(ref_y);
+          }
+          
           std::cout << std::setw(25) << "==================================================================" << std::endl;
-          Vehicle ego_vehicle;
-          //class initialization 
-          ego_vehicle.target_v=49.5;
+          //class state initialization 
+          ego_vehicle.target_v=24.5;   //m/s
           ego_vehicle.max_accel=10.0;
           ego_vehicle.dist_buffer=10.0;
-          double car_accel=sqrt(AccT*AccT+AccN*AccN);
+          //double car_accel=sqrt(AccT*AccT+AccN*AccN);
           //define the initial vehicle state;
           ego_vehicle.lane=lane;
           ego_vehicle.s=car_s;
@@ -145,25 +190,7 @@ int main() {
           Vehicle veh_init=final_trajectory[0]; //the starting state of vehicle
           Vehicle veh_final=final_trajectory[1]; // the goal state of vehicle
 
-          if(pre_size<2){
-            ref_x_pre=car_x-cos(ref_yaw);
-            ref_y_pre=car_y-sin(ref_yaw);
-            ptsx.push_back(ref_x_pre);
-            ptsx.push_back(car_x);
-            ptsy.push_back(ref_y_pre);
-            ptsy.push_back(car_y);
-          }
-          else{
-            ref_x=previous_path_x[pre_size-1];
-            ref_x_pre=previous_path_x[pre_size-2];
-            ref_y=previous_path_y[pre_size-1];
-            ref_y_pre=previous_path_y[pre_size-2];
-            ref_yaw=atan2(ref_y-ref_y_pre, ref_x-ref_x_pre);
-            ptsx.push_back(ref_x_pre);
-            ptsx.push_back(ref_x);
-            ptsy.push_back(ref_y_pre);
-            ptsy.push_back(ref_y);
-          }
+          
           //creating a path
           //shifting to the vehicle coordinates
           //creating waypoints of a spline with 30m space evenly
@@ -181,13 +208,13 @@ int main() {
           end_d={d_final, 0.0, 0.0};
 
           // Get coefficients of PTG
-          double T=5.0;
+          double T=1.0;
           vector<double> coeff_s=JMT(start_s, end_s, T);
           vector<double> coeff_d=JMT(start_d, end_d, T);
           //generate trajectory using both s(t) and d(t)
           vector<double> T_;
           vector<double> traj_s;
-          for(double i=0; i<T; i+=0.2){
+          for(double i=0; i<T; i+=0.02){
             double pt=coeff_s[0]+coeff_s[1]*i+coeff_s[2]*i*i+coeff_s[3]*pow(i,3)+coeff_s[4]*pow(i,4)+coeff_s[5]*pow(i,5);
             traj_s.push_back(pt);
             T_.push_back(i);
@@ -195,7 +222,7 @@ int main() {
 
           //generate d trajectory;
           vector<double> traj_d;
-          for(double i=0; i<T; i+=0.2){
+          for(double i=0; i<T; i+=0.02){
             double pt=coeff_d[0]+coeff_d[1]*i+coeff_d[2]*i*i+coeff_d[3]*pow(i,3)+coeff_d[4]*pow(i,4)+coeff_d[5]*pow(i,5);
             traj_d.push_back(pt);
           }
@@ -218,6 +245,7 @@ int main() {
           //ptsy.push_back(WP1[1]);
           //ptsy.push_back(WP2[1]);
           //ptsy.push_back(WP3[1]);
+
           for(auto i=0;i<ptsx.size();++i){
             double shifted_x=ptsx[i]-ref_x;
             double shifted_y=ptsy[i]-ref_y;
@@ -233,17 +261,19 @@ int main() {
             next_y_vals.push_back(previous_path_y[i]);
           }
 
-          double target_x=30;
-          double target_y;
-          target_y=t(target_x);
-          double tar_dist=distance(0, 0, target_x, target_y);
+          //double target_x=30;
+          //double target_y;
+          //target_y=t(target_x);
+          //double tar_dist=distance(0, 0, target_x, target_y);
           double x_add_on(0.0);
-          double N;
+          //double N;
+          double dist_inc;
+          double max_inc=0.445;
      
-          ref_v=veh_final.v;
+          double ref_v=veh_final.v;
           for(auto i=1;i<=50-previous_path_x.size();++i){
-            N=tar_dist/(0.02*ref_v/2.24);
-            double x_point=x_add_on+target_x/N;
+            dist_inc=(0.02*ref_v/2.24);
+            double x_point=x_add_on+dist_inc;
             double y_point=t(x_point);
             x_add_on=x_point;
             double new_x=x_point;

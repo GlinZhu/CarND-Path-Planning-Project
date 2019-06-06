@@ -20,14 +20,14 @@ class Vehicle{
 
     //functions for behavior planner
     //construct functions for FSM
-    vector<Vehicle> choose_next_state(vector<vector<double>> &predictions);
-    vector<string> next_states();
+    vector<Vehicle> get_target_s_d(vector<vector<double>> &predictions);
+    vector<string> next_available_states();
     vector<Vehicle> generate_trajectory(vector<vector<double>> &predictions, string state);
     vector<Vehicle> const_speed();
     vector<Vehicle> lane_keep_trajectory(vector<vector<double>> &predictions);
     vector<Vehicle> lane_change_trajectory(vector<vector<double>> &predictions, string state);
     vector<Vehicle> pre_lane_change_trajectory(vector<vector<double>> &predictions, string state);
-    vector<double> get_kinematic(vector<vector<double>> &predictions, int lane);
+    vector<double> get_kinematic(vector<vector<double>> &predictions, int lane, double duration);
     int get_lane_val(vector<double> &sensor_fusion);
     bool get_vehicle_behind(vector<vector<double>> predictions, int lane, Vehicle &rvehicle);
     bool get_vehicle_ahead(vector<vector<double>> predictions, int lane, Vehicle &rvehicle);
@@ -46,13 +46,6 @@ class Vehicle{
 
 
 };
-
-
-
-// create the cost functions in this folder
-float inefficiency_cost(vector<vector<double>> &predictions, Vehicle &vehicle, vector<Vehicle> &trajectory);
-float get_lane_speed(vector<vector<double>> &predictions, int lane);
-map<string, int> get_lane_data(Vehicle &vehicle, vector<vector<double>> &predictions, vector<Vehicle> &trajectory);
 
 
 
