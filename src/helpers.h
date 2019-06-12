@@ -154,4 +154,22 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
   return {x,y};
 }
 
+
+
+// decide which lane ego vehicle is at
+
+int LaneDetect(double d_pos){
+  int lane;
+  if(d_pos>0&&d_pos<4){
+      lane=0;
+  }
+  else if(d_pos>4&&d_pos<8){
+      lane=1;
+  }
+  else if(d_pos>8&&d_pos<12){
+      lane=2;
+  }
+  return lane;
+}
+
 #endif  // HELPERS_H
