@@ -127,9 +127,9 @@ int main() {
           json msgJson;
           vector<double> next_x_vals;
           vector<double> next_y_vals;
-          vector<double> detected_car_left;
-          vector<double> detected_car_middle;
-          vector<double> detected_car_right;
+          vector<vector<double>> detected_car_left;
+          vector<vector<double>> detected_car_middle;
+          vector<vector<double>> detected_car_right;
           vector<double> start, end;
           int sensor_fusion_size;
           double current_car_s, current_car_d, current_car_v;
@@ -145,7 +145,7 @@ int main() {
           int lane;
 		      lane=LaneDetect(car_d);
 
-          double pre_s_pos, pre_s_pos2, pre_d_pos, pre_car_v, pre_car_v2, pre_d_dot, pre_d_ddot, pre_car_accel, pre_car_angle;
+          double pre_s_pos, pre_s_pos2, pre_d_pos, pre_d_pos2, pre_car_v, pre_car_v2, pre_d_dot, pre_d_dot2, pre_d_ddot, pre_car_accel, pre_car_angle;
           if(pre_size<2){
             pre_car_angle=deg2rad(car_yaw);
             pre_s_pos=car_s_init;
@@ -165,24 +165,40 @@ int main() {
             pre_car_v2=(s_history[s_history.size()-2]-s_history[s_history.size()-3])/TIMESTEP;
             pre_car_accel=(pre_car_v-pre_car_v2)/TIMESTEP;
             pre_d_pos=d_history[d_history.size()-1];
+            pre_d_pos2=d_history[d_history.size()-2];
+            pre_d_dot=(pre_d_pos-pre_d_pos2)/TIMESTEP;
+            pre_d_dot2=(d_history[d_history.size()-2]-d_history[d_history.size()-3])/TIMESTEP;
+            pre_d_ddot=(pre_d_dot-pre_d_dot2)/TIMESTEP;
             //debug
             std::cout<<"  pre_s_pos: "<<pre_s_pos<<"  pre_d_pos: "<<pre_d_pos<<" pre_car_v: "<<pre_car_v<<" pre_car_accel: "<<pre_car_accel<<std::endl;
-            // erase passed path point to correct s_history
+            // erase passed path point to correct current s_history
             s_history.erase(s_history.begin(), s_history.begin()+(max_path_points-pre_size));
             d_history.erase(d_history.begin(), d_history.begin()+(max_path_points-pre_size));
           }
-
-          ego_vehicle.lane=ego_lane;
-          ego_vehicle.s=s_pos;
-          ego_vehicle.d=d_pos;
-          ego_vehicle.v=car_V;
-          ego_vehicle.a=car_accel;
-          ego_vehicle.d_dot=d_dot;
-          ego_vehicle.d_ddot=d_ddot;
+//========initialize the vehicle state
+          ego_vehicle.lane=lane;
+          ego_vehicle.s=pre_s_pos;
+          ego_vehicle.d=pre_d_pos;
+          ego_vehicle.v=pre_car_v;
+          ego_vehicle.a=pre_car_accel;
+          ego_vehicle.d_dot=pre_d_dot;
+          ego_vehicle.d_ddot=pre_d_ddot;
           //ego_vehicle.state="CS";
           ego_vehicle.target_v=MAX_SPEED;
-          std::cout<<"the current vehicle state: "<<"s_pos: "<<s_pos<<"  d_pos: "<<d_pos<<" Lane: "<<ego_lane<<"  car_V: "<<car_V<<"  car_accel: "<<car_accel<<std::endl;
-          std::cout<<"  d_dot: "<<d_dot<<"  d_ddot: "<<d_ddot<<" state: "<<ego_vehicle.state<<std::endl;
+          // Pre-process the sensor fusion
+          sensor_processing(sensor_fusion, detected_car_left, detected_car_middle, detected_car_right);
+          // Implement the behavior planner
+          
+
+
+
+
+
+
+
+
+
+
 
 /* ======================Start the iterations===============================*/
           std::cout<< "=======Start the iterations============"<<std::endl;
@@ -195,6 +211,9 @@ int main() {
           std::cout<<"Best target of d in main :"<<Best_target[1][0]<<" "<<Best_target[1][1]<<" "<<Best_target[1][2]<<std::endl;
     
           //std::cout<<"Best target state: "<<Best_target[0][1]<<std::endl;
+
+
+
 
 
 

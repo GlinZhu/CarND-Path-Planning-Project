@@ -323,7 +323,7 @@ vector<double> maps_s, vector<double> maps_x, vector<double> maps_y, vector<doub
 
 void sensor_processing(vector<vector<double>> sensor_fusion,
   vector<vector<double>> &sensor_car_list_left, vector<vector<double>> &sensor_car_list_mid,
-  vector<vector<double>> &sensor_car_list_right, double car_s){
+  vector<vector<double>> &sensor_car_list_right){
   //***************************************************//
   //Analyze Sensor Information
   //***************************************************//
