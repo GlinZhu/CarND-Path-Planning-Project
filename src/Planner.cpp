@@ -75,68 +75,50 @@ vector<vector<double>> Vehicle::get_best_traj(vector<vector<double>> &prediction
     return Best_target;   // contains {s_target, d_target}
 }
 
-vector<string> Vehicle::next_available_states(vector<vector<double>> predictions, int lane){
+double Vehicle::next_chosen_states(vector<vector<double>> detected_car_left, vector<vector<double>> detected_car_middle, vector<vector<double>> detected_car_right){
     vector<string> states;
     states.push_back("KL");
     string state=this->state;
     //Vehicle vel_ahead;
-    vector<bool> car_detected;
-    bool car_left=false, car_right=false;
-    car_detected=detect_otherCar_beside(predictions); //check if there is any vehicle besides
-    car_left=car_detected[0];
-    car_right=car_detected[2];
-    if(car_detected[1]){
-        if(this->d>4&&!car_left){
-            states.push_back("LCL");
-        }
-        if(this->d<8&&!car_right){
-            states.push_back("LCR");
-        }
-    }
-    else{
-        states.push_back("KL");
-    }
-    //debug
-    std::cout<<"the size of states are: "<<states.size()<<std::endl;
-    std::cout<<"the available states are: "<<states[0]<<" "<<states[1]<<" "<<states[2]<<std::endl;
-    return states;
-}
-
-/*
-vector<string> Vehicle::next_available_states(vector<vector<double>> predictions, int lane, Vehicle &rvehicle){
-    vector<string> states;
-    states.push_back("KL");
-    string state=this->state;
-    Vehicle vel_ahead;
-    if(this->d>4){
+    if(current_d>8.0){
         states.push_back("LCL");
     }
-    if(this->d<8){
+    else if(current_d<4){
+        states.push_back("LCR");
+    }
+    else{
+        states.push_back("LCL");
         states.push_back("LCR");
     }
     //debug
     std::cout<<"the size of states are: "<<states.size()<<std::endl;
     std::cout<<"the available states are: "<<states[0]<<" "<<states[1]<<" "<<states[2]<<std::endl;
-    return states;
-}
-*/
+    vector<double> costs;
+    for(auto i=0; i<states.size(); ++i){
+        if(states[i].compare("LCL")==0){
+            double current_cost=total_costs(detected_car_left, current_s, current_v, T_);
+            costs.push_back(current_cost);
+        }
+        else if(states[i].compare("LCR")==0){
+            double current_cost=total_costs(detected_car_right, current_s, current_v, T_);
+            costs.push_back(current_cost);
+        }
+        else if(states[i].compare("KL")==0){
+            double current_cost=total_costs(detected_car_middle, current_s, current_v, T_);
+            costs.push_back(current_cost);
+        }
+        
+    }
+    //double best_cost;
+    string best_state; 
+    vector<double>::iterator best_cost=std::min_element(begin(costs), end(costs));
+    int best_idx=std::distance(begin(costs), best_cost);
+    best_state=states[best_idx];
 
-vector<vector<double>> Vehicle::select_target_sd(vector<vector<double>> &predictions, string state, double duration){
-    vector<Vehicle> trajectory;
-    vector<double> s_target, d_target;
-    if(state.compare("LCL")==0||state.compare("LCR")==0){
-        trajectory=lane_change_trajectory(predictions, state, duration);
-    }
-    else if(state.compare("KL")==0){
-        trajectory=lane_keep_trajectory(predictions, duration);
-    }
-    else if(state.compare("CS")==0){
-        trajectory=const_speed(duration);
-    }
-    s_target={trajectory[1].s, trajectory[1].v, trajectory[1].a};
-    d_target={trajectory[1].d, 0, 0};
-    return {s_target, d_target};
+    return lane_direction[best_state];
 }
+
+
 /*
 vector<vector<double>> Vehicle::generate_trajectory(vector<vector<double>> target_s_d, double duration){
     vector<double> s_history, d_history;
@@ -164,33 +146,7 @@ vector<vector<double>> Vehicle::generate_trajectory(vector<vector<double>> targe
 */
 
 
-vector<double> Vehicle::get_kinematic(vector<vector<double>> &predictions, int lane, double duration){
 
-    double expected_accel_vel=this->v+2*duration;
-    double new_position;
-    double new_v;
-    double new_accel;
-    Vehicle vel_ahead;
-    Vehicle vel_behind;
-    if(get_vehicle_ahead(predictions, lane, vel_ahead)){
-        //double max_ahead_vel=(vel_ahead.s-this->s-DIST_BUFFER)/duration+vel_ahead.v;
-        new_v=std::min(std::min(vel_ahead.v, expected_accel_vel), MAX_SPEED);
-        //if((vel_ahead.s-this->s)<DIST_BUFFER){
-        //    new_v=vel_ahead.v;
-        //    new_v-=1;
-        //}
-            
-    }
-    else{
-        new_v=std::min(expected_accel_vel, MAX_SPEED);
-    }
-    //new_accel=(new_v-this->v)/duration;
-    new_accel=0; // set to zero?
-    //new_position=this->s+new_v*duration+0.5*new_accel*duration*duration;
-    new_position=this->s+(new_v+this->v)/2*duration;
-    std::cout<<"the new kinematics are: "<<new_position<<" "<<" "<<new_v<<" "<<new_accel<<std::endl;
-    return {new_position, new_v, new_accel};
-}
 vector<Vehicle> Vehicle::const_speed(double duration){
     vector<Vehicle> trajectory;
     trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
@@ -199,69 +155,95 @@ vector<Vehicle> Vehicle::const_speed(double duration){
     return trajectory;
 }
 
-vector<Vehicle> Vehicle::lane_keep_trajectory(vector<vector<double>> &predictions, double duration){
+void Vehicle::lane_keep_trajectory(vector<vector<double>> detected_car_list, double &v_init, double &v_end, double &car_v_init, double &car_v_end, double duration, bool &flag){
     vector<Vehicle> trajectory;
-    trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
-    vector<double> kinematic=get_kinematic(predictions, this->lane, duration);
-    trajectory.push_back(Vehicle(this->lane, kinematic[0], this->d, kinematic[1], kinematic[2], "KL"));
-    return trajectory;
+    //vector<double> kinematic=get_kinematic(predictions, this->lane, duration);
+    if(abs(v_end-current_v)<0.05&&flag==false){
+        flag=true;
+        car_v_init=current_v;
+        car_v_end=current_v;
+        v_init=car_v_init;
+        v_end=car_v_end;
+    }
+    int idx=-1;
+    int detected_car_size=detected_car_list.size();
+    for(auto i=0; i<detected_car_list.size(); ++i){
+        if(detected_car_list[detected_car_size-i-1][1]>current_s&&detected_car_list[detected_car_size-i-1][1]<(this->s+DIST_BUFFER)){
+            double tar_car_s=detected_car_list[detected_car_size-i-1][1];
+            double tar_car_v=detected_car_list[detected_car_size-i-1][2];
+            double expected_v_end=current_v+2*duration;
+            if(idx==-1){
+                idx=detected_car_size-i-1;
+                if(flag==true){
+                    car_v_init=current_v;
+                    car_v_end=std::min(std::min(MAX_SPEED, tar_car_v-1),expected_v_end);
+                    v_init=car_v_init;
+                    v_end=car_v_end;
+                    flag=false;
+                    //s_history.erase( s_history.begin()+10, s_history.end() );
+                    //d_history.erase( d_history.begin()+10, d_history.end() );
+                }
+            }
+        }
+    }
+    if(idx==-1&&flag==true&&v_end<(MAX_SPEED-1.0)){
+        flag=false;
+        car_v_init=current_v;
+        car_v_end=MAX_SPEED;
+        v_init=car_v_init;
+        v_end=car_v_end;
+        //s_history.erase( s_history.begin()+10, s_history.end() );
+        //d_history.erase( d_history.begin()+10, d_history.end() );
+    }
+    trajectory.push_back(Vehicle(this->lane, this->s, this->d, v_init, this->a, this->state));
 
 }
  
-vector<Vehicle> Vehicle::lane_change_trajectory(vector<vector<double>> &predictions, string state, double duration){
-    vector<Vehicle> trajectory;
+void Vehicle::lane_change_trajectory(double &v_init, double &v_end, 
+                                    double &car_v_init, double &car_v_end, bool &flag, double &d_init, 
+                                    double &d_end, double &car_d_init, double &car_d_end, double lane_direction){
+    //vector<Vehicle> trajectory;
     //trajectory.push_back(Vehicle(this->lane, this->s, this->v, this->a, this->state));
-    int new_lane;
-    new_lane=this->lane+lane_direction[state];
-    Vehicle next_lane_vehicle;
-    /*
-    for(auto i=0;i<predictions.size();++i){
-        vector<bool> car_detected;
-        car_detected=detect_otherCar_beside(predictions[i]);
-        int rlane=get_lane_val(predictions[i]);
-        double r_s=predictions[i][5];
-        //check if lane change is possible
-        if(state.compare("LCL")==0){
-            if(car_detected[0]&&fabs(this->s-r_s)<1.5){   //if car_left is true
-                trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
-                double new_pos=this->s+this->v*duration+0.5*this->a*duration*duration;
-                trajectory.push_back(Vehicle(this->lane, new_pos, 2.0+4.0*this->lane, this->v, 0, this->state));
-                
-            }
-            else{
-                vector<double> new_kinematic=get_kinematic(predictions, new_lane, duration);
-                trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
-                trajectory.push_back(Vehicle(new_lane, new_kinematic[0], 2.0+4.0*new_lane, new_kinematic[1], new_kinematic[2], state));
-                
-            }
-        }
-
-        if(state.compare("LCR")==0){
-            if(car_detected[2]&&fabs(this->s-r_s)<1.5){   //if car_left is true
-                trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
-                double new_pos=this->s+this->v*duration+0.5*this->a*duration*duration;
-                trajectory.push_back(Vehicle(this->lane, new_pos, 2.0+4.0*this->lane, this->v, 0, this->state));
-                
-            }
-            else{
-                vector<double> new_kinematic=get_kinematic(predictions, new_lane, duration);
-                trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
-                trajectory.push_back(Vehicle(new_lane, new_kinematic[0], 2.0+4.0*new_lane, new_kinematic[1], new_kinematic[2], state));
-                
-            }
-        }
-        
+    //int new_lane;
+    //new_lane=this->lane+lane_direction[state];
+    //Vehicle next_lane_vehicle;
+   //double new_d= 2.0+4.0*new_lane;
+    //vector<double> new_kinematic=get_kinematic(predictions, new_lane, duration);
+    //trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
+    //trajectory.push_back(Vehicle(new_lane, new_kinematic[0], new_d, new_kinematic[1], new_kinematic[2], state));
+    //return trajectory;
+    if (flag == true){
+      if (lane_direction < 0){
+        //cout << setw(25) << "Change d to: " << d_end - car_lane_width  << endl;
+        car_d_init = current_d;
+        if (current_d > 8.0){car_d_end = car_d_init-0.05;}
+        else {car_d_end = car_d_init- 4.0+0.35;}
+      }
+      else{
+        //cout << setw(25) << "Change d to: " << d_end + car_lane_width  << endl;
+        car_d_init = current_d;
+        if (current_d > 1.0*4.0){car_d_end = car_d_init + 4.0 - 0.75;}
+        else {car_d_end = car_d_init-0.05;}
+      }
+      flag = false;
+      d_init = car_d_init;
+      d_end = car_d_end;
+      if (s_history.size()>10){
+        //s_history.erase( s_history.begin()+10, s_history.end() );
+        //d_history.erase( d_history.begin()+10, d_history.end() );
+      }
     }
-    */
-   double new_d= 2.0+4.0*new_lane;
-    vector<double> new_kinematic=get_kinematic(predictions, new_lane, duration);
-    trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
-    trajectory.push_back(Vehicle(new_lane, new_kinematic[0], new_d, new_kinematic[1], new_kinematic[2], state));
-                
-    return trajectory;
-    
 
+  if ( abs(current_d-car_d_end) < 0.01*4.0 && flag == false) {
+       flag = true;
+       //car_d_init_global = car_d;
+       //car_d_end_global = car_d;
+       //d_init = car_v_init_global;
+       //d_end = car_v_end_global;
+  }
 }
+
+
 
 int Vehicle::get_lane_val(vector<double> &sensor_fusion){
     double d=sensor_fusion[6];

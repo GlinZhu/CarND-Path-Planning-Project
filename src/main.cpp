@@ -29,7 +29,8 @@ double car_d_end=car_d_init;
 vector<double> s_history;
 vector<double> d_history;
 int max_path_points=100;
-
+bool lane_change=true;
+bool lane_keep=true;
 int main() {
   uWS::Hub h;
 
@@ -185,51 +186,51 @@ int main() {
           ego_vehicle.d_ddot=pre_d_ddot;
           //ego_vehicle.state="CS";
           ego_vehicle.target_v=MAX_SPEED;
+          ego_vehicle.current_s=current_car_s;
+          ego_vehicle.current_v=current_car_v;
+          ego_vehicle.current_d=current_car_d;
           // Pre-process the sensor fusion
           sensor_processing(sensor_fusion, detected_car_left, detected_car_middle, detected_car_right);
           // Implement the behavior planner
+          double v_init, v_end, d_init, d_end;
+          v_init=car_v_init;
+          v_end=car_v_end;
+          d_init=car_d_init;
+          d_end=car_d_end;
+          double pre_path_kept=s_history.size();
+          double duration=T_-pre_path_kept*TIMESTEP;
+          double best_state=ego_vehicle.next_chosen_states(detected_car_left, detected_car_middle, detected_car_right);
           
-
-
-
-
-
-
-
-
-
-
-
-/* ======================Start the iterations===============================*/
-          std::cout<< "=======Start the iterations============"<<std::endl;
-          double duration=T_-avail_path*TIMESTEP;
-          //vector<vector<double>> Best_traj;
-          vector<vector<double>> Best_target;
-
-          Best_target=ego_vehicle.get_best_traj(sensor_fusion, duration); //which contains {s_target, d_target}
-          std::cout<<"Best target of s in main :"<<Best_target[0][0]<<" "<<Best_target[0][1]<<" "<<Best_target[0][2]<<std::endl;
-          std::cout<<"Best target of d in main :"<<Best_target[1][0]<<" "<<Best_target[1][1]<<" "<<Best_target[1][2]<<std::endl;
-    
-          //std::cout<<"Best target state: "<<Best_target[0][1]<<std::endl;
-
-
-
+          if(best_state==0&&lane_change){
+            if(current_car_d>8.0){
+                ego_vehicle.lane_keep_trajectory(detected_car_right, v_init, v_end, car_v_init, car_v_end, duration, lane_keep);
+            }
+            else if(current_car_d<4.0){
+              ego_vehicle.lane_keep_trajectory(detected_car_left, v_init, v_end, car_v_init, car_v_end, duration, lane_keep);
+            }
+            else{
+              ego_vehicle.lane_keep_trajectory(detected_car_middle, v_init, v_end, car_v_init, car_v_end, duration, lane_keep);
+            }
+          }
+          else{
+            ego_vehicle.lane_change_trajectory(v_init, v_end, car_v_init, car_v_end, lane_change, d_init, d_end, car_d_init, car_d_end, best_state);
+          }
 
 
 
 /* ============================Trajectory generation ==========================================*/
+          std::cout << std::setw(25) << "=======================Trajectory Generation ===============================" << std::endl;
 	        vector<double> ptsx;
           vector<double> ptsy;
           double ref_x, ref_y, ref_x_pre, ref_y_pre;
           double pre_s, prev_d;
           ref_x=car_x;
           ref_y=car_y;
-          pre_s=s_pos-car_V*TIMESTEP;
           vector<double> pt_s;
           double ref_yaw=deg2rad(car_yaw);
           //cout<<"the size of previous path: "<<pre_size<<endl;
 
-          if(avail_path<2){
+          if(s_history.size()<2){
             ref_x_pre=car_x-cos(ref_yaw);
             ref_y_pre=car_y-sin(ref_yaw);
             ptsx.push_back(ref_x_pre);
@@ -258,7 +259,7 @@ int main() {
           //  cout<<"The current pt_s is "<<pt_s[i]<<endl;
           //}
           
-          std::cout << std::setw(25) << "=======================Trajectory Generation ===============================" << std::endl;
+          
           
           
           //creating a path
@@ -284,46 +285,6 @@ int main() {
           ptsy.push_back(WP1[1]);
           ptsy.push_back(WP2[1]);
           ptsy.push_back(WP3[1]);
-
-          //debug ================
-          //for(unsigned i=0;i<pt_s.size();++i){
-          //  cout<<"The current pt_s is "<<pt_s[i]<<endl;
-          //}
-          //for(unsigned i=0;i<ptsy.size();++i){
-          //  cout<<"The current ptsy is "<<ptsy[i]<<endl;
-          //}
-
-          //=========================================
-
-          double max_v_incre=MAX_ACCEL*TIMESTEP-0.03; // 
-          vector<double> increment_s_points;
-          double v_incre;
-          double s_dot_target=Best_target[0][1];
-          double current_v=car_V;
-          double current_s=s_pos;
-          for(int i=0; i<50-avail_path; ++i){
-            v_incre=(s_dot_target-current_v)/(fabs(s_dot_target-current_v))*max_v_incre;
-            current_v+=v_incre;
-            current_s+=current_v*TIMESTEP;
-            increment_s_points.push_back(current_s);    //generate incremented s_points
-            //cout<<"current v is: "<<current_v<<endl;
-          }
-          //cout<<"==========check inteploated points s: "<<endl;
-          //cout<<"the incremented v is :"<<v_incre<<endl;
-
-          //for(unsigned i=0;i<increment_s_points.size();++i){
-          //  cout<<"The current increment_s_points is "<<increment_s_points[i]<<endl;
-          //}
-          
-          // generate a trajectory using s_trajectory and pts_x as x, and y axis, and interpolated using increment_s_points
-          if(pt_s.size()!=ptsx.size()){
-            std::cout<<"error, there is mismatch between pt_s and ptsx"<<std::endl;
-          }
-          
-
-
-
-
 
 
           
