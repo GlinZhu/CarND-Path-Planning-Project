@@ -70,7 +70,7 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
   for(auto i=0;i<detected_car_list.size();++i){
     double target_car_s=detected_car_list[detected_car_list.size()-i-1][1];
     double target_car_v=detected_car_list[detected_car_list.size()-i-1][3];
-    //target_car_s+=(double)pre_size*TIMESTEP*target_car_v;
+    target_car_s+=(double)pre_size*TIMESTEP*target_car_v;
     if((target_car_s-current_s)>0.0){
       if(front_idx==-1){front_idx=detected_car_list.size()-i-1;}
     }
@@ -79,6 +79,7 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
   if(front_idx==-1&&detected_car_list.size()!=0){
     double tar_car_s=detected_car_list[detected_car_list.size()-1][1];
     double tar_car_v=detected_car_list[detected_car_list.size()-1][3];
+    tar_car_s+=(double)pre_size*TIMESTEP*tar_car_v;
     if(tar_car_s+tar_car_v*duration+0.5*LCBuffer>current_s+current_v*duration){
       return 1.0; //collision
     }
@@ -89,6 +90,7 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
   else if(front_idx==detected_car_list.size()-1&&detected_car_list.size()!=0){
     double tar_car_s=detected_car_list[detected_car_list.size()-1][1];
     double tar_car_v=detected_car_list[detected_car_list.size()-1][3];
+      tar_car_s+=(double)pre_size*TIMESTEP*tar_car_v;
     if(tar_car_s+tar_car_v*duration<current_s+current_v*duration+LCBuffer){
       return 1.0; //collision
     }
@@ -101,6 +103,8 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
     double v1 = detected_car_list[front_idx+1][3];
     double s2 = detected_car_list[front_idx][1];
     double v2 = detected_car_list[front_idx][3];
+      s1+=(double)pre_size*TIMESTEP*v1;
+      s2+=(double)pre_size*TIMESTEP*v2;
     if( s1+v1*duration+0.5*LCBuffer > current_s+current_v*duration){
       //cout << "CAUTIOUS!!! " << s1 - car_s << " " << v1 - car_speed << endl;
       return 1.0;
@@ -121,7 +125,7 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
 
 double total_costs(vector<vector<double>> detected_car_list, double current_s, double pre_s, double current_v, double d_init, double d_end, double duration, int pre_size){
   // define the weights for all cost functions
-  double Check_collision=check_collision(detected_car_list, current_s, current_v, duration, pre_size);
+  double Check_collision=check_collision(detected_car_list, pre_s, current_v, duration, pre_size);
   //std::cout<<"check if the collision function excuted"<<std::endl;
   double Collision_weight=1.0;
   double speed_cost=efficiency_cost(detected_car_list, current_s, pre_s, current_v, duration, pre_size);
