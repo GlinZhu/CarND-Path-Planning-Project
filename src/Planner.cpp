@@ -28,57 +28,11 @@ Vehicle::Vehicle(int lane, double s, double d, double v, double a, string state)
 }
 
 Vehicle::~Vehicle(){}
-vector<vector<double>> Vehicle::get_best_traj(vector<vector<double>> &predictions, double duration){
-    Vehicle vel_ahead;
-    vector<string> states=next_available_states(predictions, lane);
-    vector<float> total_cost;
-    //vector<vector<vector<double>>> final_traj;
-    vector<vector<vector<double>>> final_target;
-    string best_state;
-    vector<bool> car_detected;
-    bool car_left=false, car_right=false;
-    car_detected=detect_otherCar_beside(predictions); 
-    if (car_detected[2]) cout << "CAR ON THE RIGHT!!!" << std::endl;
-	if (car_detected[0]) cout << "CAR ON THE LEFT!!!" << std::endl;
-	if (car_detected[1]) cout << "CAR JUST AHEAD!!!" << std::endl;
-    //vector<vector<double>> target_s_d=select_target_sd(predictions, states[1], duration);
-    //final_target.push_back(target_s_d);
-    //vector<vector<double>> s_d_history=generate_trajectory(target_s_d, duration);
-    //final_traj.push_back(s_d_history);
-    //double final_cost=total_costs(s_d_history, target_s_d, duration);
-    //total_cost.push_back(final_cost);
-    //for(vector<string>::iterator it=states.begin();it!=states.end();++it){
-    //    vector<vector<double>> target_s_d=select_target_sd(predictions, *it, duration);
-    //    final_target.push_back(target_s_d);
-    //    if(target_s_d[0].size()!=0){
-            //vector<vector<double>> s_d_history=generate_trajectory(target_s_d, duration);
-            //final_traj.push_back(s_d_history);
-            //double final_cost=total_costs(s_d_history, target_s_d, duration);
-    //        total_cost.push_back(final_cost);
-    //    }
-    //}
-    //vector<float>::iterator best_cost=std::min_element(begin(total_cost), end(total_cost));
-    //int best_idx=std::distance(begin(total_cost), best_cost);
-    //vector<vector<double>> Best_target=final_target[best_idx];
-    //vector<vector<double>> best_traj=final_traj[best_idx];
-    //best_state=states[best_idx];
-    //vector<vector<double>> Best_target=target_s_d;
-    //best_state=states[1];
-    //this->state=best_state;
-    
-    //vector<vector<double>> target_s_d=select_target_sd(predictions, state, duration);
-    vector<vector<double>> Best_target;
-    // debug
-    std::cout<<"Best target of s :"<<Best_target[0][0]<<" "<<Best_target[0][1]<<" "<<Best_target[0][2]<<std::endl;
-    std::cout<<"Best target of d :"<<Best_target[1][0]<<" "<<Best_target[1][1]<<" "<<Best_target[1][2]<<std::endl;
-    std::cout<<"Chosen state :"<<best_state<<std::endl;
-    return Best_target;   // contains {s_target, d_target}
-}
 
-double Vehicle::next_chosen_states(vector<vector<double>> detected_car_left, vector<vector<double>> detected_car_middle, vector<vector<double>> detected_car_right){
+double Vehicle::next_chosen_states(vector<vector<double>> detected_car_left, vector<vector<double>> detected_car_middle, vector<vector<double>> detected_car_right, double d_init, int pre_size){
     vector<string> states;
     states.push_back("KL");
-    string state=this->state;
+    //string state=this->state;
     //Vehicle vel_ahead;
     if(current_d>8.0){
         states.push_back("LCL");
@@ -92,29 +46,73 @@ double Vehicle::next_chosen_states(vector<vector<double>> detected_car_left, vec
     }
     //debug
     std::cout<<"the size of states are: "<<states.size()<<std::endl;
-    std::cout<<"the available states are: "<<states[0]<<" "<<states[1]<<" "<<states[2]<<std::endl;
+    //debug
+    for(unsigned i=0; i<states.size(); ++i){
+        cout<<"the available states are: "<<states[i]<<" "<<endl;;
+    }
+    //cout<<"the available states are: "<<states[0]<<" "<<states[1]<<" "<<states[2]<<endl;;
     vector<double> costs;
     for(auto i=0; i<states.size(); ++i){
-        if(states[i].compare("LCL")==0){
-            double current_cost=total_costs(detected_car_left, current_s, current_v, T_);
-            costs.push_back(current_cost);
+        //std::cout<<"start costs loop: "<<i<<endl;
+        if(states[i].compare("KL")==0){
+            if(current_d>8.0){
+                double d_end=this->current_d;
+                double current_cost=total_costs(detected_car_right, this->current_s, this->s, this->current_v, d_init, d_end,2, pre_size);
+                costs.push_back(current_cost);
+            }
+            else if(current_d>4.0){
+                double d_end=this->current_d;
+                double current_cost=total_costs(detected_car_middle, this->current_s, this->s,this->current_v, d_init, d_end,2, pre_size);
+                costs.push_back(current_cost);
+            }
+            else{
+                double d_end=this->current_d;
+                double current_cost=total_costs(detected_car_left, this->current_s, this->s,this->current_v, d_init, d_end,2, pre_size);
+                costs.push_back(current_cost);
+            }
+            
+        }
+        else if(states[i].compare("LCL")==0){
+            if(current_d>8.0){
+                double d_end=this->current_d-4.0;
+                double current_cost=total_costs(detected_car_middle, this->current_s, this->s,this->current_v, d_init, d_end, 2, pre_size);
+                costs.push_back(current_cost);                
+            }
+            else if(current_d>4.0){
+                double d_end=this->current_d-4.0;
+                double current_cost=total_costs(detected_car_left, this->current_s, this->s,this->current_v, d_init, d_end, 2, pre_size);
+                costs.push_back(current_cost);   
+            }
+            
         }
         else if(states[i].compare("LCR")==0){
-            double current_cost=total_costs(detected_car_right, current_s, current_v, T_);
-            costs.push_back(current_cost);
+            if(current_d>4.0&&current_d<8){
+                double d_end=this->current_d+4.0;
+                double current_cost=total_costs(detected_car_right, this->current_s, this->s,this->current_v, d_init, d_end,2, pre_size);
+                costs.push_back(current_cost);
+            }
+            else if(current_d<4){
+                double d_end=this->current_d+4.0;
+                double current_cost=total_costs(detected_car_middle, this->current_s, this->s,this->current_v, d_init, d_end,2, pre_size);
+                costs.push_back(current_cost);
+            }
+            
         }
-        else if(states[i].compare("KL")==0){
-            double current_cost=total_costs(detected_car_middle, current_s, current_v, T_);
-            costs.push_back(current_cost);
-        }
+        
+        //std::cout<<"the costs loop is completed: "<<endl;
         
     }
     //double best_cost;
+    //debug
+    for(unsigned i=0; i<costs.size(); ++i){
+        cout<<"the costs are: "<<costs[i]<<" "<<endl;;
+    }
     string best_state; 
     vector<double>::iterator best_cost=std::min_element(begin(costs), end(costs));
     int best_idx=std::distance(begin(costs), best_cost);
     best_state=states[best_idx];
-
+    std::cout<<"the best state is: "<<best_state<<std::endl;
+    std::cout<<"the lane direction is: "<<lane_direction[best_state]<<std::endl;
     return lane_direction[best_state];
 }
 
@@ -146,16 +144,9 @@ vector<vector<double>> Vehicle::generate_trajectory(vector<vector<double>> targe
 */
 
 
-
-vector<Vehicle> Vehicle::const_speed(double duration){
-    vector<Vehicle> trajectory;
-    trajectory.push_back(Vehicle(this->lane, this->s, this->d, this->v, this->a, this->state));
-    double new_pos=this->s+this->v*duration+0.5*this->a*duration*duration;
-    trajectory.push_back(Vehicle(this->lane, new_pos, this->d, this->v, 0, this->state));
-    return trajectory;
-}
-
-void Vehicle::lane_keep_trajectory(vector<vector<double>> detected_car_list, double &v_init, double &v_end, double &car_v_init, double &car_v_end, double duration, bool &flag){
+/* 
+void Vehicle::lane_keep_trajectory(vector<vector<double>> detected_car_list, double &v_init, double &v_end, double &car_v_init, 
+                double &car_v_end, double duration, bool &flag, vector<double> &s_history, vector<double> &d_history){
     vector<Vehicle> trajectory;
     //vector<double> kinematic=get_kinematic(predictions, this->lane, duration);
     if(abs(v_end-current_v)<0.05&&flag==false){
@@ -170,18 +161,18 @@ void Vehicle::lane_keep_trajectory(vector<vector<double>> detected_car_list, dou
     for(auto i=0; i<detected_car_list.size(); ++i){
         if(detected_car_list[detected_car_size-i-1][1]>current_s&&detected_car_list[detected_car_size-i-1][1]<(this->s+DIST_BUFFER)){
             double tar_car_s=detected_car_list[detected_car_size-i-1][1];
-            double tar_car_v=detected_car_list[detected_car_size-i-1][2];
-            double expected_v_end=current_v+2*duration;
+            double tar_car_v=detected_car_list[detected_car_size-i-1][3];
+            //double expected_v_end=current_v+2*duration;
             if(idx==-1){
                 idx=detected_car_size-i-1;
                 if(flag==true){
                     car_v_init=current_v;
-                    car_v_end=std::min(std::min(MAX_SPEED, tar_car_v-1),expected_v_end);
+                    car_v_end=(std::min(MAX_SPEED, tar_car_v-1));
                     v_init=car_v_init;
                     v_end=car_v_end;
                     flag=false;
-                    //s_history.erase( s_history.begin()+10, s_history.end() );
-                    //d_history.erase( d_history.begin()+10, d_history.end() );
+                    s_history.erase( s_history.begin()+10, s_history.end() );
+                    d_history.erase( d_history.begin()+10, d_history.end() );
                 }
             }
         }
@@ -192,16 +183,117 @@ void Vehicle::lane_keep_trajectory(vector<vector<double>> detected_car_list, dou
         car_v_end=MAX_SPEED;
         v_init=car_v_init;
         v_end=car_v_end;
-        //s_history.erase( s_history.begin()+10, s_history.end() );
-        //d_history.erase( d_history.begin()+10, d_history.end() );
+        s_history.erase( s_history.begin()+10, s_history.end() );
+        d_history.erase( d_history.begin()+10, d_history.end() );
     }
-    trajectory.push_back(Vehicle(this->lane, this->s, this->d, v_init, this->a, this->state));
+    //trajectory.push_back(Vehicle(this->lane, this->s, this->d, v_init, this->a, this->state));
 
 }
+*/
+void Vehicle::lane_keep_trajectory(vector<vector<double>>  sensor_car_list_current,
+   double &v_init, double &v_end, double &car_v_init_global, double &car_v_end_global, bool &flag, vector<double> &s_history, vector<double> &d_history){
+    double car_speed=this->current_v;
+    double car_s=this->current_s;
+    double prev_s=this->s;
+    double lane_keeping_buffer=5;
+    double lane_keeping_buffer_v=1.0;
+    double car_speed_max=MAX_SPEED;
+  if ( abs(car_speed-v_end) < 0.5 && flag == false) {
+       //cout << setw(25) << "Target speed reached: " << car_speed << endl;
+       flag = true;
+       car_v_init_global = car_speed;
+       car_v_end_global = car_speed;
+       v_init = car_v_init_global;
+       v_end = car_v_end_global;
+  }
+
+  double idx = -1;
+
+  for(int i=0; i<sensor_car_list_current.size(); i++){
+
+    //if(dflag>=dflag_sensor_details){cout << "All cars in the CURRENT lane: " << sensor_car_list_current[sensor_car_list_current.size()-i-1][1]-car_s << endl;}
+
+    if(sensor_car_list_current[sensor_car_list_current.size()-i-1][1]>car_s){
+
+      cout << "Cars in front: " << sensor_car_list_current[sensor_car_list_current.size()-i-1][1]-car_s << endl;
+
+      if (sensor_car_list_current[sensor_car_list_current.size()-i-1][1]<prev_s+ lane_keeping_buffer){
+
+        double car_v_target = sensor_car_list_current[sensor_car_list_current.size()-i-1][3];
+        double car_s_target = sensor_car_list_current[sensor_car_list_current.size()-i-1][1];
+
+        //cout << car_v_target << " " << ((car_v_target-v_end)< 0.5*lane_keeping_buffer_v) << " " << (car_v_target < car_speed_max) << " " << flag << endl;
+
+        if (idx == -1) {
+
+          idx = sensor_car_list_current.size()-i-1;
+          if ( (flag == true) && (car_s_target-car_s<2.0*lane_keeping_buffer) ){
+            //cout << setw(25) << "Attension: Car too close "; for (int j=0; j<4; j++) { cout << sensor_car_list_current[sensor_car_list_current.size()-i-1][j] << " ";} cout << endl;
+            //cout << setw(25) << "Decrease speed to: " << car_v_target - lane_keeping_buffer_v*3.0  << endl;
+            flag = false;
+            car_v_init_global = car_speed;
+            car_v_end_global = car_v_target - lane_keeping_buffer_v*3.0;
+            v_init = car_v_init_global;
+            v_end = car_v_end_global;
+            s_history.erase( s_history.begin()+10, s_history.end() );
+            d_history.erase( d_history.begin()+10, d_history.end() );
+          }
+          else if (flag == true && (car_v_target>car_speed_max) && (v_end<car_speed_max)) {
+            //cout << setw(25) << "Attension: "; for (int j=0; j<4; j++) { cout << sensor_car_list_current[sensor_car_list_current.size()-i-1][j] << " ";} cout << endl;
+            //cout << setw(25) << "Increase speed to: " << car_speed_max  << endl;
+            flag = false;
+            car_v_init_global = car_speed;
+            car_v_end_global = car_speed_max;
+            v_init = car_v_init_global;
+            v_end = car_v_end_global;
+            s_history.erase( s_history.begin()+10, s_history.end() );
+            d_history.erase( d_history.begin()+10, d_history.end() );
+          }
+          else if(  (((flag==false)&&(v_end==car_speed_max))||(flag==true)) && (car_v_target<car_speed_max)&&((car_v_target-v_end)<0.5*lane_keeping_buffer_v) )
+          {
+            //cout << setw(25) << "Attension: "; for (int j=0; j<4; j++) { cout << sensor_car_list_current[sensor_car_list_current.size()-i-1][j] << " ";} cout << endl;
+            //cout << setw(25) << "Decrease speed to: " << car_v_target-lane_keeping_buffer_v << endl;
+            flag = false;
+            car_v_init_global = car_speed;
+            car_v_end_global = car_v_target - lane_keeping_buffer_v;
+            v_init = car_v_init_global;
+            v_end = car_v_end_global;
+            s_history.erase( s_history.begin()+10, s_history.end() );
+            d_history.erase( d_history.begin()+10, d_history.end() );
+          }
+          else if(flag == true && car_v_target<car_speed_max && car_v_target-v_end > 1.5*lane_keeping_buffer_v){
+            //cout << setw(25) << "Attension: "; for (int j=0; j<4; j++) { cout << sensor_car_list_current[sensor_car_list_current.size()-i-1][j] << " ";} cout << endl;
+            //cout << setw(25) << "Increase speed to: " << car_v_target-lane_keeping_buffer_v << endl;
+            flag = false;
+            car_v_init_global = car_speed;
+            car_v_end_global = car_v_target - lane_keeping_buffer_v;
+            v_init = car_v_init_global;
+            v_end = car_v_end_global;
+            s_history.erase( s_history.begin()+10, s_history.end() );
+            d_history.erase( d_history.begin()+10, d_history.end() );
+          }
+        }
+
+      }
+    }
+  }
+
+  if (flag == true && idx == -1 && v_end < car_speed_max - lane_keeping_buffer_v){
+    //cout << setw(25) << "Attension: detected NO car in front"  << endl;
+    //cout << setw(25) << "Increase speed to: " << car_speed_max  << endl;
+    flag = false;
+    car_v_init_global = car_speed;
+    car_v_end_global = car_speed_max;
+    v_init = car_v_init_global;
+    v_end = car_v_end_global;
+    s_history.erase( s_history.begin()+10, s_history.end() );
+    d_history.erase( d_history.begin()+10, d_history.end() );
+  }
+}
+
  
-void Vehicle::lane_change_trajectory(double &v_init, double &v_end, 
-                                    double &car_v_init, double &car_v_end, bool &flag, double &d_init, 
-                                    double &d_end, double &car_d_init, double &car_d_end, double lane_direction){
+void Vehicle::lane_change_trajectory(double &v_init, double &v_end, bool &flag, double &d_init, 
+                                    double &d_end, double &car_d_init_global, double &car_d_end_global, double lane_direction, vector<double> &s_history, vector<double> &d_history){
     //vector<Vehicle> trajectory;
     //trajectory.push_back(Vehicle(this->lane, this->s, this->v, this->a, this->state));
     //int new_lane;
@@ -215,26 +307,26 @@ void Vehicle::lane_change_trajectory(double &v_init, double &v_end,
     if (flag == true){
       if (lane_direction < 0){
         //cout << setw(25) << "Change d to: " << d_end - car_lane_width  << endl;
-        car_d_init = current_d;
-        if (current_d > 8.0){car_d_end = car_d_init-0.05;}
-        else {car_d_end = car_d_init- 4.0+0.35;}
+        car_d_init_global = current_d;
+        if (current_d > 8.0){car_d_end_global = 6.0-0.05;}
+        else {car_d_end_global = 6.0- 4.0+0.35;}
       }
       else{
         //cout << setw(25) << "Change d to: " << d_end + car_lane_width  << endl;
-        car_d_init = current_d;
-        if (current_d > 1.0*4.0){car_d_end = car_d_init + 4.0 - 0.75;}
-        else {car_d_end = car_d_init-0.05;}
+        car_d_init_global = current_d;
+        if (current_d > 1.0*4.0){car_d_end_global = 6.0 + 4.0 - 0.75;}
+        else {car_d_end_global = 6.0-0.05;}
       }
       flag = false;
-      d_init = car_d_init;
-      d_end = car_d_end;
+      d_init = car_d_init_global;
+      d_end = car_d_end_global;
       if (s_history.size()>10){
-        //s_history.erase( s_history.begin()+10, s_history.end() );
-        //d_history.erase( d_history.begin()+10, d_history.end() );
+        s_history.erase( s_history.begin()+10, s_history.end() );
+        d_history.erase( d_history.begin()+10, d_history.end() );
       }
     }
 
-  if ( abs(current_d-car_d_end) < 0.01*4.0 && flag == false) {
+  if(abs(current_d-car_d_end_global) < 0.01*4.0 && flag == false) {
        flag = true;
        //car_d_init_global = car_d;
        //car_d_end_global = car_d;
@@ -244,70 +336,24 @@ void Vehicle::lane_change_trajectory(double &v_init, double &v_end,
 }
 
 
-
-int Vehicle::get_lane_val(vector<double> &sensor_fusion){
-    double d=sensor_fusion[6];
-    if(d>0&&d<4){
-        lane=0;
-    }
-    else if(d>4&&d<8){
-        lane=1;
-    }
-    else if(d>8&&d<12){
-        lane=2;
-    }
-    return lane;
-}
-// Not implemented in the code
-bool Vehicle::get_vehicle_behind(vector<vector<double>> predictions, int lane, Vehicle &rvehicle){
-    bool found=false;
-    Vehicle temp_vehicle;
-    int max_s=-1;
-    for(auto i=0;i<predictions.size();++i){
-        //temp_vehicle=predictions[i];
-        vector<bool> car_detected;
-        car_detected=detect_otherCar_beside(predictions);
-        int rlane=get_lane_val(predictions[i]);
-        bool car_inLane=car_detected[1];
-        if(car_inLane&&predictions[i][5]<this->s&&predictions[i][5]>max_s){
-            found=true;
-            max_s=predictions[i][5];   //pass the reference vehicle next time if vehicle 
-                                        // behind is found
-            double vx=predictions[i][3];
-            double vy=predictions[i][4];
-            double r_v=sqrt(vx*vx+vy*vy);
-            double r_a=0; //assume the predicted vehicle has constant speed
-            rvehicle=Vehicle(rlane, predictions[i][5],predictions[i][6], r_v, r_a, "CS");
-        }
-    }
-    return found;
-
-}
-
-bool Vehicle::get_vehicle_ahead(vector<vector<double>> predictions, int lane, Vehicle &rvehicle){
+/* 
+bool Vehicle::get_vehicle_ahead(vector<vector<double>> detected_car_middle, double pre_car_s, double pre_size){
     bool found=false;
     Vehicle temp_vehicle;
     int min_s=std::numeric_limits<int>::max();
-    for(auto i=0;i<predictions.size();++i){
+    for(auto i=0;i<detected_car_middle.size();++i){
         //temp_vehicle=predictions[i];
-        vector<bool> car_detected;
-        car_detected=detect_otherCar_beside(predictions);
-        bool car_inLane=car_detected[1];
-        int rlane=get_lane_val(predictions[i]);
-        if(car_inLane&&predictions[i][5]>this->s&&predictions[i][5]<min_s){
+        double Front_s=detected_car_middle[i][1];
+        double Front_v=detected_car_middle[i][3];
+        Front_s+=Front_v*TIMESTEP*pre_size;
+        if((Front_s>pre_car_s)&&((Front_s-pre_car_s)<DIST_BUFFER)){
             found=true;
-            min_s=predictions[i][5];   //pass the reference vehicle next time if vehicle 
-                                        // behind is found
-            double vx=predictions[i][3];
-            double vy=predictions[i][4];
-            double r_v=sqrt(vx*vx+vy*vy);
-            double r_a=0; //assume the predicted vehicle has constant speed
-            rvehicle=Vehicle(rlane, predictions[i][5],predictions[i][6], r_v, r_a, "CS");
         }
+        return found;
     }
     return found;
-
 }
+*/
 
 vector<bool> Vehicle::detect_otherCar_beside(vector<vector<double>> &predictions){
     bool car_right=false, car_left=false, car_ahead=false;

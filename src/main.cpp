@@ -12,6 +12,7 @@
 
 #include "Planner.h" //include the planner functions
 #include "Constant.h"
+#include "Prediction.h"
 // for convenience
 using nlohmann::json;
 using std::string;
@@ -19,18 +20,18 @@ using std::vector;
 using std::cout;
 using std::endl;
 //initialize variables
-
+double max_s=6945.554;
 double lane_width=4.0;
 double car_s_init=1.249392e+02;
 double car_d_init=6.164833e+00;
 double car_v_init=0.0;
 double car_v_end=MAX_SPEED;
-double car_d_end=car_d_init;
-vector<double> s_history;
-vector<double> d_history;
-int max_path_points=100;
-bool lane_change=true;
+double  car_d_init_global = car_d_init;
+double car_d_end_global = car_d_init;
 bool lane_keep=true;
+bool lane_change=true;
+vector<double> s_history, d_history;
+
 int main() {
   uWS::Hub h;
 
@@ -68,18 +69,15 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
   tk::spline s_x, s_y, s_dx, s_dy;
-
   spline_fitting(s_x, s_y, s_dx, s_dy, map_waypoints_s,map_waypoints_x, map_waypoints_y, map_waypoints_dx, map_waypoints_dy);
 
-
-
-  //double ref_v=0.0;
-  //int lane=1;
+  double ref_v=0.0;
+  int lane=1;
   //create a class
   Vehicle ego_vehicle=Vehicle();
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy, &ego_vehicle, &s_x, &s_y, &s_dx, &s_dy]
+               &map_waypoints_dx,&map_waypoints_dy, &ego_vehicle, &ref_v, &lane]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -104,8 +102,7 @@ int main() {
           double car_d = j[1]["d"];
           double car_yaw = j[1]["yaw"];
           double car_speed = j[1]["speed"];
-          car_speed=car_speed/2.23694; //covert mph to m/s
-
+          //car_speed=car_speed/2.23694;
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
           auto previous_path_y = j[1]["previous_path_y"];
@@ -116,23 +113,20 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
           vector<vector<double>> sensor_fusion = j[1]["sensor_fusion"];
-          cout<<"the size of sensor fusion is :"<<sensor_fusion.size()<<endl;
-          cout<<"sensor fusion id:"<<sensor_fusion[4][0]<<" x:"<<sensor_fusion[4][1]<<" y:"<<sensor_fusion[4][2]<<" vx:"<<sensor_fusion[4][3]<<" vy:"<<sensor_fusion[4][4]<<" s:"<<sensor_fusion[4][5]<<" d:"<<sensor_fusion[4][6]<<endl;
+          //cout<<"the size of sensor fusion is :"<<sensor_fusion.size()<<endl;
+          //cout<<"sensor fusion id:"<<sensor_fusion[4][0]<<" x:"<<sensor_fusion[4][1]<<" y:"<<sensor_fusion[4][2]<<" vx:"<<sensor_fusion[4][3]<<" vy:"<<sensor_fusion[4][4]<<" s:"<<sensor_fusion[4][5]<<" d:"<<sensor_fusion[4][6]<<endl;
           //cout<<"sensor fusion id:"<<sensor_fusion[0][6]<<" x:"<<sensor_fusion[2][6]<<" y:"<<sensor_fusion[4][6]<<" vx:"<<sensor_fusion[6][6]<<" vy:"<<sensor_fusion[8][6]<<" s:"<<sensor_fusion[10][6]<<" d:"<<sensor_fusion[11][6]<<endl;
           
           int pre_size=previous_path_x.size();
-          //cout<<"===============start the code==============================="<<endl;
+          cout<<"===============start the code==============================="<<endl;
           cout<<"the size of previous path: "<<pre_size<<endl;
           int avail_path=std::min(MAX_PATH_KEPT, pre_size);
           //cout<<"the size of avail path: "<<avail_path<<endl;
           json msgJson;
           vector<double> next_x_vals;
           vector<double> next_y_vals;
-          vector<vector<double>> detected_car_left;
-          vector<vector<double>> detected_car_middle;
-          vector<vector<double>> detected_car_right;
-          vector<double> start, end;
-          int sensor_fusion_size;
+          vector<vector<double>> detected_car_left, detected_car_middle, detected_car_right;
+          double pre_s_pos, pre_s_pos2, pre_d_pos, pre_d_pos2, pre_car_v, pre_car_v2, pre_d_dot, pre_d_dot2, pre_d_ddot, pre_car_accel, pre_car_angle;
           double current_car_s, current_car_d, current_car_v;
           current_car_s=car_s;
           current_car_d=car_d;
@@ -142,124 +136,321 @@ int main() {
            * define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
-          //Get lane value according to given current car_d;
-          int lane;
-		      lane=LaneDetect(car_d);
-
-          double pre_s_pos, pre_s_pos2, pre_d_pos, pre_d_pos2, pre_car_v, pre_car_v2, pre_d_dot, pre_d_dot2, pre_d_ddot, pre_car_accel, pre_car_angle;
+  
+          //cout<<"after assign the current state to Vehicle variables"<<endl;
+//========initialize the vehicle state
+          int ego_lane;
+          ego_lane=LaneDetect(car_d);
+          double pre_car_x, pre_car_y, pre_car_x1, pre_car_y1;
+          double car_s_pre, car_d_pre;
+          double ref_yaw=deg2rad(car_yaw);
           if(pre_size<2){
-            pre_car_angle=deg2rad(car_yaw);
-            pre_s_pos=car_s_init;
-            pre_d_pos=car_d_init;
-            pre_car_v=car_v_init;
-            pre_d_dot=0.0;
-            pre_d_ddot=0.0;
-            pre_car_accel=0.0;
-
+            
+            pre_car_x=car_x-cos(ref_yaw);
+            pre_car_y=car_y-sin(ref_yaw);
+            car_s_pre=car_s_init;
+            car_d_pre=car_d_init;
           }
           else{
-            //assign the current state to Vehicle variables
-            pre_s_pos=s_history[s_history.size()-1];
-            pre_d_pos=d_history[d_history.size()-1];
-            pre_s_pos2=s_history[s_history.size()-2];
-            pre_car_v=(pre_s_pos-pre_s_pos2)/TIMESTEP;
-            pre_car_v2=(s_history[s_history.size()-2]-s_history[s_history.size()-3])/TIMESTEP;
-            pre_car_accel=(pre_car_v-pre_car_v2)/TIMESTEP;
-            pre_d_pos=d_history[d_history.size()-1];
-            pre_d_pos2=d_history[d_history.size()-2];
-            pre_d_dot=(pre_d_pos-pre_d_pos2)/TIMESTEP;
-            pre_d_dot2=(d_history[d_history.size()-2]-d_history[d_history.size()-3])/TIMESTEP;
-            pre_d_ddot=(pre_d_dot-pre_d_dot2)/TIMESTEP;
-            //debug
-            std::cout<<"  pre_s_pos: "<<pre_s_pos<<"  pre_d_pos: "<<pre_d_pos<<" pre_car_v: "<<pre_car_v<<" pre_car_accel: "<<pre_car_accel<<std::endl;
-            // erase passed path point to correct current s_history
-            s_history.erase(s_history.begin(), s_history.begin()+(max_path_points-pre_size));
-            d_history.erase(d_history.begin(), d_history.begin()+(max_path_points-pre_size));
+            pre_car_x=previous_path_x[pre_size-1];
+            pre_car_y=previous_path_x[pre_size-2];
+            pre_car_x1=previous_path_y[pre_size-1];
+            pre_car_y1=previous_path_y[pre_size-2];
+            ref_yaw=atan2(pre_car_y-pre_car_y1, pre_car_x-pre_car_x1);
+            car_s_pre=end_path_s;
+            car_d_pre=end_path_d;
           }
-//========initialize the vehicle state
-          ego_vehicle.lane=lane;
-          ego_vehicle.s=pre_s_pos;
-          ego_vehicle.d=pre_d_pos;
-          ego_vehicle.v=pre_car_v;
-          ego_vehicle.a=pre_car_accel;
-          ego_vehicle.d_dot=pre_d_dot;
-          ego_vehicle.d_ddot=pre_d_ddot;
+          
+
+          ego_vehicle.lane=ego_lane;
+          ego_vehicle.s=car_s_pre;
+          ego_vehicle.d=car_d_pre;
+          //ego_vehicle.v=pre_car_v;
+          //ego_vehicle.a=pre_car_accel;
+          //ego_vehicle.d_dot=pre_d_dot;
+          //ego_vehicle.d_ddot=pre_d_ddot;
           //ego_vehicle.state="CS";
           ego_vehicle.target_v=MAX_SPEED;
           ego_vehicle.current_s=current_car_s;
           ego_vehicle.current_v=current_car_v;
           ego_vehicle.current_d=current_car_d;
+          cout<<"The current s: "<<current_car_s<<" the current v: "<<current_car_v<<" the current d is: "<<current_car_d<<endl;;
           // Pre-process the sensor fusion
           sensor_processing(sensor_fusion, detected_car_left, detected_car_middle, detected_car_right);
-          // Implement the behavior planner
-          double v_init, v_end, d_init, d_end;
-          v_init=car_v_init;
-          v_end=car_v_end;
-          d_init=car_d_init;
-          d_end=car_d_end;
-          double pre_path_kept=s_history.size();
-          double duration=T_-pre_path_kept*TIMESTEP;
-          double best_state=ego_vehicle.next_chosen_states(detected_car_left, detected_car_middle, detected_car_right);
+          //cout<<"after sensor fusion processing"<<endl;
+          //cout<<"the size of detected_car_left is: "<<detected_car_left.size()<<endl;
+          //cout<<"the size of detected_car_middle is: "<<detected_car_middle.size()<<endl;
+          //cout<<"the size of detected_car_right is: "<<detected_car_right.size()<<endl;
+          double best_state=ego_vehicle.next_chosen_states(detected_car_left, detected_car_middle, detected_car_right, current_car_d, pre_size);
+          //cout<<"Next_chosen states function is passed"<<endl;
+          double v_init = car_v_init; double v_end = car_v_end;
+            double d_init = car_d_init_global; double d_end = car_d_end_global;
+          double duration=T_;
+          bool sensor=false;
+          if(sensor)
+            {  cout <<"============Sensor Info for Right Lane: Difference, car_d, car_v====================" << endl;
+            for(int i=0; i<detected_car_right.size(); i++){
+            //for(int j=0; j<4; j++){ cout << sensor_car_list_right[i][j] << " ";}
+              cout << detected_car_right[i][1] - car_s<< " " <<detected_car_right[i][2]<< " " <<detected_car_right[i][3];
+              cout << endl;
+            }
+            cout << "====================Sensor Info for Mid Lane========================" << endl;
+            for(int i=0; i<detected_car_middle.size(); i++){
+              //for(int j=0; j<4; j++){cout << sensor_car_list_mid[i][j] << " ";}
+              cout << detected_car_middle[i][1] - car_s << " " <<detected_car_middle[i][2]<< " " <<detected_car_middle[i][3];
+              cout << endl;
+              }
+            cout << "========================Sensor Info for Left Lane=======================" << endl;
+            for(int i=0; i<detected_car_left.size(); i++){
+            //for(int j=0; j<4; j++){ cout << sensor_car_list_left[i][j] << " ";}
+              cout << detected_car_left[i][1] - car_s<< " " <<detected_car_left[i][2]<< " " <<detected_car_left[i][3];
+              cout << endl;
+              }}
+            cout<<"The current lane is: "<<ego_lane<<endl;
+
+          bool car_left=false, car_ahead=false, car_right=false;
+          bool LaneChange=false, TooClose=false;
+          vector<bool> car_detected;
+          double left_tar_v,right_tar_v;
+
+/*
+          for(auto i=0;i<sensor_fusion.size();++i){
+            double otherCar_d=sensor_fusion[i][6];
+            //double r_s=sensor_fusion[i][5];
+            double d_diff=otherCar_d-car_d_pre;
+            double vx=sensor_fusion[i][3];
+            double vy=sensor_fusion[i][4];
+            double FrontCar_v=sqrt(vx*vx+vy*vy);
+            double FrontCar_s=sensor_fusion[i][5];
+            FrontCar_s+=(double)pre_size*TIMESTEP*FrontCar_v;
+            if(d_diff>2&&d_diff<6&&(fabs(car_s_pre-FrontCar_s))<15){
+                car_right=true;
+                cout<<"car on the right"<<endl;
+            }
+            else if(d_diff>-6&&d_diff<-2&&(fabs(car_s_pre-FrontCar_s))<15){
+                car_left=true;
+                cout<<"car on the left"<<endl;
+            }
+            else if(d_diff>-2&&d_diff<2){
+                if((FrontCar_s>car_s_pre)&&((FrontCar_s-car_s_pre)<DIST_BUFFER)){
+                  TooClose=true;
+                  car_ahead=true;
+                  cout<<"car ahead : "<<FrontCar_s-car_s<<endl;
+                  if(ego_lane>0){
+                    lane=0;
+                  }
+                  
+                }
+            }
+
+          }
+          if(TooClose){
+                ref_v-=0.224;
+                cout<<"Slowing down! Too close！"<<endl;
+              }
+              else if(ref_v<MAX_SPEED){
+                ref_v+=0.224;
+                cout<<"Speed up to Max！"<<endl;
+              }
+
+  */        
+
+
+          // define new method
+          // detect the vehicle aside
           
-          if(best_state==0&&lane_change){
-            if(current_car_d>8.0){
-                ego_vehicle.lane_keep_trajectory(detected_car_right, v_init, v_end, car_v_init, car_v_end, duration, lane_keep);
+          //get_car_aside(detected_car_left, car_left, pre_size, car_s_pre);
+          //if(car_left){
+          //  cout<<"car on the left!!"<<endl;
+          //}
+          //detect the cars on the right
+          //get_car_aside(detected_car_right, car_right, pre_size, car_s_pre);
+          //if(car_right){
+          //  cout<<"car on the right!!"<<endl;
+          //}
+
+/*
+          
+          if(car_d>0&&car_d<4){
+            get_car_ahead(detected_car_left, TooClose, pre_size, car_s_pre);
+            get_car_aside(detected_car_middle, car_right, pre_size, car_s_pre);
+              if(TooClose){
+                if(ego_lane==lane){
+
+                }
+                
+
+
+
+                if(ego_lane==lane){
+                  car_ahead=true;
+                }
+
+              }
+              if(car_ahead){
+                ref_v-=0.25;
+                cout<<"Slowing down! Too close！"<<endl;
+              }
+              else if(ref_v<MAX_SPEED){
+                ref_v+=0.25;
+                cout<<"Speed up to Max！"<<endl;
+              }
+
             }
-            else if(current_car_d<4.0){
-              ego_vehicle.lane_keep_trajectory(detected_car_left, v_init, v_end, car_v_init, car_v_end, duration, lane_keep);
+            else if(car_d>4&&car_d<8){
+              get_car_ahead(detected_car_middle, TooClose, pre_size, car_s_pre);
+              get_car_aside(detected_car_left, car_left, pre_size, car_s_pre);
+              get_car_aside(detected_car_right, car_right, pre_size, car_s_pre);
+              if(TooClose){
+                ref_v-=0.25;
+                cout<<"Slowing down! Too close！"<<endl;
+                
             }
-            else{
-              ego_vehicle.lane_keep_trajectory(detected_car_middle, v_init, v_end, car_v_init, car_v_end, duration, lane_keep);
+              else if(ref_v<MAX_SPEED){
+                ref_v+=0.25;
+                cout<<"Speed up to Max！"<<endl;
+              }
+            }
+            else if(car_d>8){
+              get_car_ahead(detected_car_right, TooClose, pre_size, car_s_pre);
+              get_car_aside(detected_car_left, car_left, pre_size, car_s_pre);
+              if(TooClose){
+                ref_v-=0.25;
+                cout<<"Slowing down! Too close！"<<endl;
+                
+            }
+              else if(ref_v<MAX_SPEED){
+                ref_v+=0.25;
+                cout<<"Speed up to Max！"<<endl;
             }
           }
-          else{
-            ego_vehicle.lane_change_trajectory(v_init, v_end, car_v_init, car_v_end, lane_change, d_init, d_end, car_d_init, car_d_end, best_state);
+*/
+        
+        if(best_state>0.0){
+          cout<<"======================ready to change to right lane"<<endl;
+          //LaneChange=true;
+        }
+        else if(best_state<0.0){
+          cout<<"=========================ready to change to left lane"<<endl;
+          //LaneChange=true;
+        }
+        
+          // define behavior
+    
+    
+        int lane_end=1;
+        double speed_diff=0.4;
+        double ACC=0.6;
+        if(best_state==0.0){
+          if(car_d>0&&car_d<4){
+          get_car_ahead(detected_car_left, TooClose, pre_size, car_s_pre);
+            if(TooClose){
+              ref_v-=speed_diff;
+              cout<<"Slowing down! Too close！"<<endl;
+            }
+            else if(ref_v<MAX_SPEED){
+              ref_v+=ACC;
+              cout<<"Speed up to Max！"<<endl;
+            }
+            }
+            else if(car_d>4&&car_d<8){
+              get_car_ahead(detected_car_middle, TooClose, pre_size, car_s_pre);
+              if(TooClose){
+              ref_v-=speed_diff;
+              cout<<"Slowing down! Too close！"<<endl;
+            }
+            else if(ref_v<MAX_SPEED){
+              ref_v+=ACC;
+              cout<<"Speed up to Max！"<<endl;
+            }
+            }
+            else if(car_d>8){
+              get_car_ahead(detected_car_right, TooClose, pre_size, car_s_pre);
+              if(TooClose){
+                ref_v-=speed_diff;
+                cout<<"Slowing down! Too close！"<<endl;
+            }
+            else if(ref_v<MAX_SPEED){
+              ref_v+=ACC;
+              cout<<"Speed up to Max！"<<endl;
+              }
+            }
           }
+        else if(best_state<0.0){
+          if(car_d>8){
+            lane=1;
+          }
+          else if(car_d>4){
+            lane=0;
+          }
+          LaneChange=true;
+          
+        }
+        else if(best_state>0.0){
+          if(car_d<4){
+            lane=1;
+          }
+          else if(car_d>4&&car_d<8){
+            lane=2;
+          }
+          
+        }
+          //||((2.0+4.0*(lane+1))-current_car_d)>0.75
+        //||get_lane_val(car_d)!=(ego_lane-1)
+        //||get_lane_val(car_d)!=(ego_lane+1)
+        
+ 
+          
+
 
 
 
 /* ============================Trajectory generation ==========================================*/
-          std::cout << std::setw(25) << "=======================Trajectory Generation ===============================" << std::endl;
+          if(pre_size>0){
+            car_s=end_path_s;
+          }
+
 	        vector<double> ptsx;
           vector<double> ptsy;
           double ref_x, ref_y, ref_x_pre, ref_y_pre;
           double pre_s, prev_d;
           ref_x=car_x;
           ref_y=car_y;
+          //pre_s=s_pos-car_V*TIMESTEP;
           vector<double> pt_s;
-          double ref_yaw=deg2rad(car_yaw);
+          ref_yaw=deg2rad(car_yaw);
           //cout<<"the size of previous path: "<<pre_size<<endl;
 
-          if(s_history.size()<2){
+          if(pre_size<2){
             ref_x_pre=car_x-cos(ref_yaw);
             ref_y_pre=car_y-sin(ref_yaw);
             ptsx.push_back(ref_x_pre);
             ptsx.push_back(car_x);
             ptsy.push_back(ref_y_pre);
             ptsy.push_back(car_y);
-            double pre_s=s_pos-1.0;
-            pt_s.push_back(pre_s);
-            pt_s.push_back(s_pos);
+            //double pre_s=s_pos-1.0;
+            //pt_s.push_back(pre_s);
+            //pt_s.push_back(s_pos);
           }
           else{
-            ref_x=previous_path_x[avail_path-1];
-            ref_x_pre=previous_path_x[avail_path-2];
-            ref_y=previous_path_y[avail_path-1];
-            ref_y_pre=previous_path_y[avail_path-2];
+            ref_x=previous_path_x[pre_size-1];
+            ref_x_pre=previous_path_x[pre_size-2];
+            ref_y=previous_path_y[pre_size-1];
+            ref_y_pre=previous_path_y[pre_size-2];
             ref_yaw=atan2(ref_y-ref_y_pre, ref_x-ref_x_pre);
             ptsx.push_back(ref_x_pre);
             ptsx.push_back(ref_x);
             ptsy.push_back(ref_y_pre);
             ptsy.push_back(ref_y);
-            pt_s.push_back(pre_s);
-            pt_s.push_back(s_pos);
+            //pt_s.push_back(pre_s);
+            //pt_s.push_back(s_pos);
           }
           //cout<<"tets point 1"<<endl;
           //for(unsigned i=0;i<pt_s.size();++i){
           //  cout<<"The current pt_s is "<<pt_s[i]<<endl;
           //}
           
-          
+          //std::cout << std::setw(25) << "=======================Trajectory Generation ===============================" << std::endl;
           
           
           //creating a path
@@ -268,27 +459,49 @@ int main() {
           vector<double> WP1;
           vector<double> WP2;
           vector<double> WP3;
-          double d_target=Best_target[1][0];
-          double s_next=s_pos+30;
-          double s_next1=s_pos+60;
-          double s_next2=s_pos+90;
+          vector<double> WP4;
+          double d_target=2.0+4.0*lane;
+          cout<<"The target lane is :"<<lane<<endl;
+          double current_s_pos=car_s;
+          double s_next=current_s_pos+35;
+          double s_next1=current_s_pos+60;
+          double s_next2=current_s_pos+90;
+          double s_next3=current_s_pos+120;
           WP1=getXY(s_next, d_target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           WP2=getXY(s_next1, d_target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           WP3=getXY(s_next2, d_target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          WP4=getXY(s_next3, d_target, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           
           ptsx.push_back(WP1[0]);
           ptsx.push_back(WP2[0]);
           ptsx.push_back(WP3[0]);
-          pt_s.push_back(s_next);
-          pt_s.push_back(s_next1);
-          pt_s.push_back(s_next2);
+          ptsx.push_back(WP4[0]);
+          //pt_s.push_back(s_next);
+          //pt_s.push_back(s_next1);
+          //pt_s.push_back(s_next2);
           ptsy.push_back(WP1[1]);
           ptsy.push_back(WP2[1]);
           ptsy.push_back(WP3[1]);
+          ptsy.push_back(WP4[1]);
 
+          //debug ================
+          //for(unsigned i=0;i<pt_s.size();++i){
+          //  cout<<"The current pt_s is "<<pt_s[i]<<endl;
+          //}
+          //for(unsigned i=0;i<ptsy.size();++i){
+          //  cout<<"The current ptsy is "<<ptsy[i]<<endl;
+          //}
+
+          //=========================================
 
           
-          for(auto i=0;i<avail_path;++i){
+          
+          // generate a trajectory using s_trajectory and pts_x as x, and y axis, and interpolated using increment_s_points
+          if(ptsy.size()!=ptsx.size()){
+            std::cout<<"error, there is mismatch between pt_s and ptsx"<<std::endl;
+          }
+          
+          for(auto i=0;i<pre_size;++i){
             next_x_vals.push_back(previous_path_x[i]);
             next_y_vals.push_back(previous_path_y[i]);
           }
@@ -300,31 +513,8 @@ int main() {
           */
 
     
-          //pt_s.erase(pt_s.begin());
-          //ptsx.erase(ptsx.begin());
-          //ptsy.erase(ptsy.begin());
-          tk::spline t;
-          t.set_points(pt_s, ptsx);
-          
-          cout<<"tets point 2"<<endl;
-          for(unsigned i=0; i<increment_s_points.size(); ++i){
-            double Next_x=t(increment_s_points[i]);
-            next_x_vals.push_back(Next_x);
-          }
-          cout<<"next x val : "<<next_x_vals[avail_path+1]<<endl;
-          // generate s splie for y axis;
-          tk::spline s;
-          s.set_points(pt_s, ptsy);
-          for(unsigned i=0; i<increment_s_points.size(); ++i){
-            double Next_y=s(increment_s_points[i]);
-            next_y_vals.push_back(Next_y);
-          }
-          cout<<"next y val : "<<next_y_vals[avail_path+1]<<endl;
-          
-          cout<<"===========================end the code============================="<<endl;
-        
 
-/*
+
           for(auto i=0;i<ptsx.size();++i){
             double shifted_x=ptsx[i]-ref_x;
             double shifted_y=ptsy[i]-ref_y;
@@ -333,14 +523,27 @@ int main() {
           }
           tk::spline t;
           t.set_points(ptsx,ptsy);
+  
+          double target_x=40;
+          double target_y;
+          target_y=t(target_x);
+          double tar_dist=distance(0, 0, target_x, target_y);
+          double x_add_on(0);
+          for(auto i=1;i<=80-pre_size;i++){
+            double N=tar_dist/(ref_v*TIMESTEP/2.24);
+            double x_point=x_add_on+target_x/N;
+            double y_point=t(x_point);
+            x_add_on=x_point;
+            double shifted_x=x_point;
+            double shifted_y=y_point;
+            double new_x=cos(ref_yaw)*shifted_x-sin(ref_yaw)*shifted_y;
+            double new_y=sin(ref_yaw)*shifted_x+cos(ref_yaw)*shifted_y;
+            new_x+=ref_x;
+            new_y+=ref_y;
+            next_x_vals.push_back(new_x);
+            next_y_vals.push_back(new_y);
+          }
 
-*/
-         
-
-          //double target_x=30;
-          //double target_y;
-          //target_y=t(target_x);
-          //double tar_dist=distance(0, 0, target_x, target_y);
     
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
