@@ -301,7 +301,7 @@ int main() {
                 ref_v-=speed_diff;
               }
             }
-            else if(ref_v<MAX_SPEED){
+            else if(car_speed/2.24<MAX_SPEED){
               ref_v+=ACC;
               cout<<"=============Speed up to Max！====================="<<endl;
             }
@@ -314,11 +314,11 @@ int main() {
               if(car_speed/2.24<ahead_tar_v){
                 ref_v+=speed_diff;
               }
-              {
+              else{
                 ref_v-=speed_diff;
               }
             }
-            else if(ref_v<MAX_SPEED){
+            else if(car_speed/2.24<MAX_SPEED){
               ref_v+=ACC;
               cout<<"==================Speed up to Max！==========================="<<endl;
             }
@@ -335,7 +335,7 @@ int main() {
                 ref_v-=speed_diff;
               }
             }
-            else if(ref_v<MAX_SPEED){
+            else if(car_speed/2.24<MAX_SPEED){
               ref_v+=ACC;
               cout<<"====================Speed up to Max！============================"<<endl;
               }
