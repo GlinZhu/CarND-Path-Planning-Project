@@ -17,6 +17,23 @@ Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoi
 
 The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
 
+### Brief Description of Path Planner
+In this project, the path planning algorithm was developed to navigate the car safely through a virtual highway traffic without any accidents, such as collision, out of lane, etc. The following link shows that the self driving car is able to successfully drive at least 5 miles without accidents. [Click Here](https://youtu.be/bB8V2-OHRoI)
+
+The model consists of three parts:
+1. Sensor processing
+2. Behavior Planning
+3. Trajectory generation
+
+### Sensor Fusion List Processing
+The sensor fusion processing function `void sensor_processing()` mainly divide the sensor fusion list into three lists which incldue detected cars on the left, in the middle and on the right lane. 
+
+### Behavior Planning
+The behavior planning module consists of finite state machine and cost function for each next available state.
+For instance, if the vehcile is currently in the middle, then the next available state will be "LCL" and "LCR", and each available states will be evaluated by the cost fucntion inside `Planner.cpp`. The best state will be chosen if the cost value is the lowest among all available states.
+
+## Reflection
+According to provided the sample code in the project Q&A, the default trajectory generation was used in this project, but new method using JMT for trajectory generation will be re-submitted for this project. 
 ## Basic Build Instructions
 
 1. Clone this repo.
