@@ -16,19 +16,20 @@ double sigmoid(double x){
 }
 
 
-double not_middle_lane(double car_d){
-  double d_diff=pow((car_d-6),2);
-  return sigmoid(d_diff);
-}
-double cost_lane_change(double d_init, double d_end){
+double cost_lane_change(double d_start, double d_end){
 
   //cout << setw(25) << "start of calculating cost of lane chagnge " << endl;
-  if( abs(d_init - d_end)< 0.05 ){
+  if( abs(d_start - d_end)< 0.05 ){
     return 0.0;
   }
   else{
     return 1.0;
   }
+}
+
+double not_middle_lane(double car_d){
+  double d_diff=pow((car_d-6),2);
+  return sigmoid(d_diff);
 }
 
 // Define cost functions
@@ -47,6 +48,8 @@ double efficiency_cost(vector<vector<double>> detected_car_list, double current_
     
     if(front_idx!=-1){
       tar_car_v=detected_car_list[front_idx][3];
+      //double s1=detected_car_list[front_idx+1][1];
+      //double v1=detected_car_list[front_idx+1][3];
       if(tar_car_v>MAX_SPEED){
         tar_car_v=MAX_SPEED;
       }
@@ -70,8 +73,8 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
   for(auto i=0;i<detected_car_list.size();++i){
     double target_car_s=detected_car_list[detected_car_list.size()-i-1][1];
     double target_car_v=detected_car_list[detected_car_list.size()-i-1][3];
-    target_car_s+=(double)pre_size*TIMESTEP*target_car_v;
-    if((target_car_s-current_s)>0.0){
+    //target_car_s+=(double)pre_size*TIMESTEP*target_car_v;
+    if((target_car_s-current_s)>0){
       if(front_idx==-1){front_idx=detected_car_list.size()-i-1;}
     }
   }
@@ -79,7 +82,7 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
   if(front_idx==-1&&detected_car_list.size()!=0){
     double tar_car_s=detected_car_list[detected_car_list.size()-1][1];
     double tar_car_v=detected_car_list[detected_car_list.size()-1][3];
-    tar_car_s+=(double)pre_size*TIMESTEP*tar_car_v;
+    //tar_car_s+=(double)pre_size*TIMESTEP*tar_car_v;
     if(tar_car_s+tar_car_v*duration+0.5*LCBuffer>current_s+current_v*duration){
       return 1.0; //collision
     }
@@ -90,7 +93,7 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
   else if(front_idx==detected_car_list.size()-1&&detected_car_list.size()!=0){
     double tar_car_s=detected_car_list[detected_car_list.size()-1][1];
     double tar_car_v=detected_car_list[detected_car_list.size()-1][3];
-      tar_car_s+=(double)pre_size*TIMESTEP*tar_car_v;
+    //tar_car_s+=(double)pre_size*TIMESTEP*tar_car_v;
     if(tar_car_s+tar_car_v*duration<current_s+current_v*duration+LCBuffer){
       return 1.0; //collision
     }
@@ -103,9 +106,9 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
     double v1 = detected_car_list[front_idx+1][3];
     double s2 = detected_car_list[front_idx][1];
     double v2 = detected_car_list[front_idx][3];
-      s1+=(double)pre_size*TIMESTEP*v1;
-      s2+=(double)pre_size*TIMESTEP*v2;
-    if( s1+v1*duration+0.5*LCBuffer > current_s+current_v*duration){
+    //s1+=(double)pre_size*TIMESTEP*v1;
+    //s2+=(double)pre_size*TIMESTEP*v2;
+    if( s1+v1*duration+0.8*LCBuffer > current_s+current_v*duration){
       //cout << "CAUTIOUS!!! " << s1 - car_s << " " << v1 - car_speed << endl;
       return 1.0;
     }
@@ -121,15 +124,13 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
 }
 
 
-
-
 double total_costs(vector<vector<double>> detected_car_list, double current_s, double pre_s, double current_v, double d_init, double d_end, double duration, int pre_size){
   // define the weights for all cost functions
-  double Check_collision=check_collision(detected_car_list, pre_s, current_v, duration, pre_size);
+  double Check_collision=check_collision(detected_car_list, current_s, current_v, duration, pre_size);
   //std::cout<<"check if the collision function excuted"<<std::endl;
-  double Collision_weight=1.0;
+  double Collision_weight=1.11;
   double speed_cost=efficiency_cost(detected_car_list, current_s, pre_s, current_v, duration, pre_size);
-  double lane_change_weight=0.08;
+  double lane_change_weight=0.15;
   double lane_change=cost_lane_change(d_init, d_end);
   //std::cout<<"check if the efficiency function excuted"<<std::endl;
   double Speed_weight=0.8;
@@ -141,10 +142,6 @@ double total_costs(vector<vector<double>> detected_car_list, double current_s, d
   //std::cout<<"check if the total cost function excuted?"<<std::endl;
   return total_cost;
 }
-
-
-
-
 
 
 #endif

@@ -80,14 +80,18 @@ int get_lane_val(double d){
     return lane;
 }
 
-void get_car_ahead(vector<vector<double>> &detected_car_list, bool &flag, int pre_size, double car_s_pre){
+double get_car_ahead(vector<vector<double>> &detected_car_list, bool &flag, int pre_size, double car_s_pre){
     int front_idx=-1;
+    double ahead_v;
     for(auto i=0;i<detected_car_list.size();++i){
     double target_car_s=detected_car_list[detected_car_list.size()-i-1][1];
     double target_car_v=detected_car_list[detected_car_list.size()-i-1][3];
     target_car_s+=(double)pre_size*TIMESTEP*target_car_v;
     if((target_car_s-car_s_pre)>0.05&&(target_car_s-car_s_pre)<DIST_BUFFER){
-        if(front_idx==-1){front_idx=detected_car_list.size()-i-1;}
+        if(front_idx==-1){
+          front_idx=detected_car_list.size()-i-1;
+          ahead_v=target_car_v;
+          }
         }
     }
     if(front_idx==-1){  //menas that no cars in the front
@@ -96,6 +100,7 @@ void get_car_ahead(vector<vector<double>> &detected_car_list, bool &flag, int pr
     else if(front_idx!=-1&&detected_car_list.size()!=0){
         flag=true; // vehicel ahead is detected
     }
+    return ahead_v;
         
 }
 
