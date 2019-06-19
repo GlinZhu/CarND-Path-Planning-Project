@@ -70,7 +70,7 @@ int main() {
   }
   
 
-  double ref_v=0.0;
+  double ref_v=0.5;
   int lane=1;
   //create a class
   Vehicle ego_vehicle=Vehicle();
@@ -207,10 +207,12 @@ int main() {
               }}
             //cout<<"The current lane is: "<<ego_lane<<endl;
 
-          bool car_left=false, car_ahead=false, car_right=false;
+          bool car_ahead=false;
           bool LaneChange=false, TooClose=false;
           vector<bool> car_detected;
           double left_tar_v,right_tar_v, ahead_tar_v;
+          bool car_left0=false, car_left1=false, car_left2=false;
+          bool left_right0=false, car_right1=false, car_right2=false;
           // define new method
           // detect the vehicle aside
           
@@ -223,52 +225,6 @@ int main() {
           //if(car_right){
           //  cout<<"car on the right!!"<<endl;
           //}
-/*
-          if(car_d>0&&car_d<4){
-            get_car_ahead(detected_car_left, TooClose, pre_size, car_s_pre);
-            get_car_aside(detected_car_middle, car_right, pre_size, car_s_pre);
-              if(TooClose){
-                if(ego_lane==lane){
-                }
-                if(ego_lane==lane){
-                  car_ahead=true;
-                }
-              }
-              if(car_ahead){
-                ref_v-=0.25;
-                cout<<"Slowing down! Too close！"<<endl;
-              }
-              else if(ref_v<MAX_SPEED){
-                ref_v+=0.25;
-                cout<<"Speed up to Max！"<<endl;
-              }
-            }
-            else if(car_d>4&&car_d<8){
-              get_car_ahead(detected_car_middle, TooClose, pre_size, car_s_pre);
-              get_car_aside(detected_car_left, car_left, pre_size, car_s_pre);
-              get_car_aside(detected_car_right, car_right, pre_size, car_s_pre);
-              if(TooClose){
-                ref_v-=0.25;
-                cout<<"Slowing down! Too close！"<<endl; 
-            }
-              else if(ref_v<MAX_SPEED){
-                ref_v+=0.25;
-                cout<<"Speed up to Max！"<<endl;
-              }
-            }
-            else if(car_d>8){
-              get_car_ahead(detected_car_right, TooClose, pre_size, car_s_pre);
-              get_car_aside(detected_car_left, car_left, pre_size, car_s_pre);
-              if(TooClose){
-                ref_v-=0.25;
-                cout<<"Slowing down! Too close！"<<endl;
-            }
-              else if(ref_v<MAX_SPEED){
-                ref_v+=0.25;
-                cout<<"Speed up to Max！"<<endl;
-            }
-          }
-*/
         
         if(best_state>0.0){
           cout<<std::setw(25)<<"======================Ready to change to right lane===================="<<endl;
@@ -287,13 +243,22 @@ int main() {
     
         int lane_end=1;
         double speed_diff=0.25;
-        double ACC=0.25;
-        if(best_state==0.0){
+        double ACC=0.28;
+        double car_ahead_s=std::numeric_limits<double>::max();
+        double Max_accel=2;
+        //double Kp(0.05), Ki(0.001);
+        
+        if(best_state==0.0||ref_v<13){
           if(car_d>0&&car_d<4){
-          ahead_tar_v=get_car_ahead(detected_car_left, TooClose, pre_size, car_s_pre);
+          ahead_tar_v=get_car_ahead(detected_car_left, car_ahead_s, TooClose, pre_size, car_s_pre);
+          get_car_aside(detected_car_middle, car_right1, pre_size, car_s_pre);
+          
             if(TooClose){
               cout<<"==============Slowing down! Too close！==================="<<endl;
-              //ref_v-=speed_diff;
+              ref_v-=+0.05;
+              //double s_diff=car_ahead_s-current_car_s;
+              //double v_diff=(ahead_tar_v-car_speed/2.24);
+              //ref_v-=0.01*s_diff-0.005*v_diff;
               if(ref_v>ahead_tar_v){
                 ref_v-=speed_diff;
               }
@@ -303,14 +268,19 @@ int main() {
             }
             else if(ref_v<MAX_SPEED){
               ref_v+=ACC;
-              cout<<"=============Speed up to Max！====================="<<endl;
+              cout<<"=============Speed up ！====================="<<endl;
             }
             }
             else if(car_d>4&&car_d<8){
-              ahead_tar_v=get_car_ahead(detected_car_middle, TooClose, pre_size, car_s_pre);
+              ahead_tar_v=get_car_ahead(detected_car_middle, car_ahead_s, TooClose, pre_size, car_s_pre);
+              get_car_aside(detected_car_left, car_left0, pre_size, car_s_pre);
+              get_car_aside(detected_car_right, car_right2, pre_size, car_s_pre);
               if(TooClose){
               cout<<"================Slowing down! Too close！====================="<<endl;
-              //ref_v-=speed_diff;
+              //double s_diff=car_ahead_s-current_car_s;
+              //double v_diff=(ahead_tar_v-car_speed/2.24);
+              //ref_v-=0.01*s_diff-0.005*v_diff;
+              ref_v-=speed_diff+0.05;
               if(ref_v>ahead_tar_v){
                 ref_v-=speed_diff;
               }
@@ -320,50 +290,67 @@ int main() {
             }
             else if(ref_v<MAX_SPEED){
               ref_v+=ACC;
-              cout<<"==================Speed up to Max！==========================="<<endl;
+              cout<<"==================Speed up！==========================="<<endl;
             }
             }
             else if(car_d>8){
-              ahead_tar_v=get_car_ahead(detected_car_right, TooClose, pre_size, car_s_pre);
+              ahead_tar_v=get_car_ahead(detected_car_right, car_ahead_s, TooClose, pre_size, car_s_pre);
+              get_car_aside(detected_car_middle, car_left1, pre_size, car_s_pre);
               if(TooClose){
-                //ref_v-=speed_diff;
+                ref_v-=speed_diff+0.05;
                 cout<<"================Slowing down! Too close=====================！"<<endl;
+                //double s_diff=car_ahead_s-current_car_s;
+                //double v_diff=(ahead_tar_v-car_speed/2.24);
+                //ref_v-=0.01*s_diff-0.005*v_diff;
                 if(ref_v>ahead_tar_v){
                 ref_v-=speed_diff;
-              }
+                }
                 else{
                 ref_v+=speed_diff;
-              }
+                }
             }
             else if(ref_v<MAX_SPEED){
               ref_v+=ACC;
-              cout<<"====================Speed up to Max！============================"<<endl;
+              cout<<"====================Speed up！============================"<<endl;
               }
             }
           }
         else if(best_state<0.0){
-          if(car_d>8){
+          get_car_aside(detected_car_left, car_left0, pre_size, car_s_pre);
+          get_car_aside(detected_car_middle, car_left1, pre_size, car_s_pre);
+          //get_car_aside(detected_car_right, car_left2, pre_size, car_s_pre);
+          if(car_d>8&&!car_left1){
             lane=1;
+            cout<<"Turn Left!, No car on the left"<<endl;
           }
-          else if(car_d>4){
+          else if(car_d>4&&car_d<8&&!car_left0){
             lane=0;
+            cout<<"Turn Left!, No car on the left"<<endl;
           }
+          
           LaneChange=true;
           
         }
         else if(best_state>0.0){
-          if(car_d<4){
+          get_car_aside(detected_car_middle, car_right1, pre_size, car_s_pre);
+          get_car_aside(detected_car_right, car_right2, pre_size, car_s_pre);
+          if(car_d<4&&!car_right1){
             lane=1;
+            cout<<"Turn Right!, No car on the Right"<<endl;
           }
-          else if(car_d>4&&car_d<8){
+          else if(car_d>4&&car_d<8&&!car_right2){
             lane=2;
+            cout<<"Turn Right!, No car on the Right"<<endl;
           }
           
         }
           //||((2.0+4.0*(lane+1))-current_car_d)>0.75
         //||get_lane_val(car_d)!=(ego_lane-1)
         //||get_lane_val(car_d)!=(ego_lane+1)
-        
+        cout<<" "<<endl;
+        cout<<"The current Lane is: "<<get_lane_val(current_car_d)<<" ================> Target Lane: "<<lane<<endl;
+        cout<<endl;
+        //cout<<"The Target Lane is: "<<lane<<endl;
  
           
 

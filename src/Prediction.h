@@ -80,7 +80,7 @@ int get_lane_val(double d){
     return lane;
 }
 
-double get_car_ahead(vector<vector<double>> &detected_car_list, bool &flag, int pre_size, double car_s_pre){
+double get_car_ahead(vector<vector<double>> &detected_car_list, double &car_ahead_s, bool &flag, int pre_size, double car_s_pre){
     int front_idx=-1;
     double ahead_v;
     for(auto i=0;i<detected_car_list.size();++i){
@@ -91,6 +91,7 @@ double get_car_ahead(vector<vector<double>> &detected_car_list, bool &flag, int 
         if(front_idx==-1){
           front_idx=detected_car_list.size()-i-1;
           ahead_v=target_car_v;
+          car_ahead_s=detected_car_list[front_idx][1];
           }
         }
     }
@@ -107,7 +108,7 @@ double get_car_ahead(vector<vector<double>> &detected_car_list, bool &flag, int 
 void get_car_aside(vector<vector<double>> &detected_car_list, bool &flag, int pre_size, double car_s_pre){
    int right_idx=-1;
    double tar_v;
-   double lane_buffer=15;
+   double lane_buffer=10;
     for(auto i=0;i<detected_car_list.size();++i){
         double right_car_s=detected_car_list[detected_car_list.size()-i-1][1];
         double right_car_v=detected_car_list[detected_car_list.size()-i-1][3];

@@ -5,6 +5,7 @@
 #include<map>
 #include<string>
 #include<vector>
+#include<math.h>
 //#include "Planner.h"
 #include "Constant.h"
 using std::vector;
@@ -80,10 +81,10 @@ double check_collision(vector<vector<double>> detected_car_list, double current_
   }
   //there are three cases where all cars in the front of ego_car, and all cars is behind of the ego_car, and ego car is in the middle of detected cars;
   if(front_idx==-1&&detected_car_list.size()!=0){
-    //double tar_car_s=detected_car_list[detected_car_list.size()-1][1];
-    //double tar_car_v=detected_car_list[detected_car_list.size()-1][3];
-      double tar_car_s=detected_car_list[0][1];
-      double tar_car_v=detected_car_list[0][3];
+    double tar_car_s=detected_car_list[detected_car_list.size()-1][1];
+    double tar_car_v=detected_car_list[detected_car_list.size()-1][3];
+      //double tar_car_s=detected_car_list[0][1];
+      //double tar_car_v=detected_car_list[0][3];
     //tar_car_s+=(double)pre_size*TIMESTEP*tar_car_v;
     if(tar_car_s+tar_car_v*duration+0.5*LCBuffer>current_s+current_v*duration){
       return 1.0; //collision
@@ -130,12 +131,12 @@ double total_costs(vector<vector<double>> detected_car_list, double current_s, d
   // define the weights for all cost functions
   double Check_collision=check_collision(detected_car_list, current_s, current_v, duration, pre_size);
   //std::cout<<"check if the collision function excuted"<<std::endl;
-  double Collision_weight=1.9;    //1.11
+  double Collision_weight=1.5;    //1.11
   double speed_cost=efficiency_cost(detected_car_list, current_s, pre_s, current_v, duration, pre_size);
-  double lane_change_weight=0.15;
+  double lane_change_weight=0.20;
   double lane_change=cost_lane_change(d_init, d_end);
   //std::cout<<"check if the efficiency function excuted"<<std::endl;
-  double Speed_weight=0.8;
+  double Speed_weight=0.9;
   double total_cost;
   double middle_lane=not_middle_lane(d_end);
   double middle_lane_weight=0.00;

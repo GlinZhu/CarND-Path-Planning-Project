@@ -11,5 +11,5 @@
 #define T_ 2        //define timing for the prediction
 #define SAFETYGAP 3.0
 #define kMaxS 6945.554
-#define LCBuffer 8
+#define LCBuffer 6
 #endif
