@@ -36,6 +36,7 @@ The sensor fusion processing function `void sensor_processing()` mainly divide t
 ### Behavior Planning
 The behavior planning module consists of finite state machine and cost function for each next available state.
 For instance, if the vehcile is currently in the middle, then the next available state will be "LCL" and "LCR", and each available states will be evaluated by the cost fucntion inside `Planner.cpp`. The best state will be chosen if the cost value is the lowest among all available states.
+
 `double get_car_ahead()` and `void get_car_aside` detect ahead and both sides of ego vehicles so that self driving car is able to make a better decision combined with cost functions in behavior planning module. 
 
 ## Reflection
