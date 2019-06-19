@@ -20,7 +20,9 @@ The highway's waypoints loop around so the frenet s value, distance along the ro
 ### Brief Description of Path Planner
 In this project, the path planning algorithm was developed to navigate the car safely through a virtual highway traffic without any accidents, such as collision, out of lane, etc. The following link shows that the self driving car is able to successfully drive at least 5 miles without accidents. [Click Here](https://youtu.be/bB8V2-OHRoI)
 The picture below shows that the car is able to drive safely without incidents at least 10 miles.
+
 ![avatar](./data/mileage_path_planning.png)
+
 
 The model consists of three parts:
 1. Sensor processing
