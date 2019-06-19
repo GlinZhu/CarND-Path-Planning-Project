@@ -286,22 +286,22 @@ int main() {
     
     
         int lane_end=1;
-        double speed_diff=0.4;
-        double ACC=0.6;
+        double speed_diff=0.25;
+        double ACC=0.25;
         if(best_state==0.0){
           if(car_d>0&&car_d<4){
           ahead_tar_v=get_car_ahead(detected_car_left, TooClose, pre_size, car_s_pre);
             if(TooClose){
               cout<<"==============Slowing down! Too close！==================="<<endl;
-              ref_v-=speed_diff;
-              if(car_speed/2.24<ahead_tar_v){
-                ref_v+=speed_diff;
-              }
-              else{
+              //ref_v-=speed_diff;
+              if(ref_v>ahead_tar_v){
                 ref_v-=speed_diff;
               }
+              else{
+                ref_v+=speed_diff;
+              }
             }
-            else if(car_speed/2.24<MAX_SPEED){
+            else if(ref_v<MAX_SPEED){
               ref_v+=ACC;
               cout<<"=============Speed up to Max！====================="<<endl;
             }
@@ -310,15 +310,15 @@ int main() {
               ahead_tar_v=get_car_ahead(detected_car_middle, TooClose, pre_size, car_s_pre);
               if(TooClose){
               cout<<"================Slowing down! Too close！====================="<<endl;
-              ref_v-=speed_diff;
-              if(car_speed/2.24<ahead_tar_v){
-                ref_v+=speed_diff;
-              }
-              else{
+              //ref_v-=speed_diff;
+              if(ref_v>ahead_tar_v){
                 ref_v-=speed_diff;
               }
+              else{
+                ref_v+=speed_diff;
+              }
             }
-            else if(car_speed/2.24<MAX_SPEED){
+            else if(ref_v<MAX_SPEED){
               ref_v+=ACC;
               cout<<"==================Speed up to Max！==========================="<<endl;
             }
@@ -326,16 +326,16 @@ int main() {
             else if(car_d>8){
               ahead_tar_v=get_car_ahead(detected_car_right, TooClose, pre_size, car_s_pre);
               if(TooClose){
-                ref_v-=speed_diff;
+                //ref_v-=speed_diff;
                 cout<<"================Slowing down! Too close=====================！"<<endl;
-                if(car_speed/2.24<ahead_tar_v){
-                ref_v+=speed_diff;
+                if(ref_v>ahead_tar_v){
+                ref_v-=speed_diff;
               }
                 else{
-                ref_v-=speed_diff;
+                ref_v+=speed_diff;
               }
             }
-            else if(car_speed/2.24<MAX_SPEED){
+            else if(ref_v<MAX_SPEED){
               ref_v+=ACC;
               cout<<"====================Speed up to Max！============================"<<endl;
               }

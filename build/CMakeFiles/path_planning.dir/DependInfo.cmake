@@ -4,13 +4,15 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/guilins/Desktop/Test/CarND-Path-Planning-Project/src/Planner.cpp" "/home/guilins/Desktop/Test/CarND-Path-Planning-Project/build/CMakeFiles/path_planning.dir/src/Planner.cpp.o"
-  "/home/guilins/Desktop/Test/CarND-Path-Planning-Project/src/main.cpp" "/home/guilins/Desktop/Test/CarND-Path-Planning-Project/build/CMakeFiles/path_planning.dir/src/main.cpp.o"
+  "/Users/guilinzhu/desktop/CarND-Path-Planning-Project/src/Planner.cpp" "/Users/guilinzhu/desktop/CarND-Path-Planning-Project/build/CMakeFiles/path_planning.dir/src/Planner.cpp.o"
+  "/Users/guilinzhu/desktop/CarND-Path-Planning-Project/src/main.cpp" "/Users/guilinzhu/desktop/CarND-Path-Planning-Project/build/CMakeFiles/path_planning.dir/src/main.cpp.o"
   )
-set(CMAKE_CXX_COMPILER_ID "GNU")
+set(CMAKE_CXX_COMPILER_ID "Clang")
 
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
+  "/usr/local/include"
+  "/usr/local/opt/openssl/include"
   )
 
 # Targets to which this target links.
