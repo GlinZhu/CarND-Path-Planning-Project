@@ -255,7 +255,7 @@ int main() {
           
             if(TooClose){
               cout<<"==============Slowing down! Too close！==================="<<endl;
-              ref_v-=+0.05;
+              ref_v-=speed_diff+0.05;
               //double s_diff=car_ahead_s-current_car_s;
               //double v_diff=(ahead_tar_v-car_speed/2.24);
               //ref_v-=0.01*s_diff-0.005*v_diff;
